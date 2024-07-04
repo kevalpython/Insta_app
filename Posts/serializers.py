@@ -4,9 +4,8 @@ This module contains serializer for passing data into json format.
 
 from rest_framework import serializers
 from .models import (
-    Post,PostImageVideo
+    Post,PostImageVideo,Like,Comment
 )
-
 
 class PostSerializer(serializers.ModelSerializer):
 
@@ -31,3 +30,15 @@ class ImageVideoSerializer(serializers.ModelSerializer):
         model = PostImageVideo
         fields = ("user", "post", "file")
 
+class IsLikeSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Like
+        fields = ("is_like",)
+
+
+class CommentSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Comment
+        fields = ("user", "post", "content")
