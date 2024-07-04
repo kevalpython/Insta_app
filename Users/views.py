@@ -53,6 +53,3 @@ class UpdateUserView(viewsets.ViewSet):
         user.delete()
         return Response({"msg": "User Deleted", "status": status.HTTP_201_CREATED})
 
-
-
-
