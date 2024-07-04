@@ -4,7 +4,7 @@ This module contains serializer for passing data into json format.
 
 from rest_framework import serializers
 from .models import (
-    Post,PostImageVideo,Like,Comment
+    Post,PostImageVideo,Like,Comment,Friendship
 )
 
 class PostSerializer(serializers.ModelSerializer):
@@ -42,3 +42,8 @@ class CommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
         fields = ("user", "post", "content")
+
+class FriendshipRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Friendship
+        fields = ("from_user", "to_user", "is_accepted")

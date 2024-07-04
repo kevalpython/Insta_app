@@ -11,8 +11,8 @@ class Conversation(BaseModel):
     conversation_name = models.TextField(blank=True, null=True)
     participants = models.ManyToManyField(User, related_name='conversations')
 
-    def __str__(self) -> str:
-        return self.pk
+    # def __str__(self) -> str:
+    #     return self.pk
 
 class Message(BaseModel):
     
@@ -20,6 +20,6 @@ class Message(BaseModel):
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages')
     text = models.TextField()
     
-    def __str__(self) -> str:
-        return self.pk
+    # def __str__(self) -> str:
+    #     return self.pk
 

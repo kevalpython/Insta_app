@@ -1,19 +1,14 @@
-from django.shortcuts import render
 from .models import *
 from .serializers import (
     PostSerializer,
     ImageVideoSerializer,
     IsLikeSerializer,
     CommentSerializer,
-    # ConversationSerializer,
-    # MessageSerializer,
+    FriendshipRequestSerializer,
 )
-from django.db.models import Q
-from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-# Create your views here.
 
 
 class AddPostView(viewsets.ViewSet):
@@ -32,8 +27,9 @@ class AddPostView(viewsets.ViewSet):
                     image_serialzer = ImageVideoSerializer(data=image_data)
                     if image_serialzer.is_valid():
                         image_serialzer.save()
-            return Response({"msg": "Post Created", "status": status.HTTP_201_CREATED})
+            return Response({"msg": "Post Created"}, status=status.HTTP_201_CREATED)
         return Response(add_post_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class PostView(viewsets.ViewSet):
 
@@ -95,9 +91,9 @@ class DeletePostView(viewsets.ViewSet):
         post = Post.objects.filter(pk=pk, user=request.user.id)
         if post:
             post.delete()
-            return Response({"msg": "Post Deleted", "status": status.HTTP_201_CREATED})
+            return Response({"msg": "Post Deleted"}, status=status.HTTP_201_CREATED)
         return Response(
-            {"msg": "Post Not Found", "status_code": status.HTTP_404_NOT_FOUND}
+            {"msg": "Post Not Found"}, status_code=status.HTTP_404_NOT_FOUND
         )
 
 
@@ -117,16 +113,16 @@ class LikePostView(viewsets.ViewSet):
         if created:
             like.is_like = True
             like.save()
-            return Response({"msg": "Liked Post", "status": status.HTTP_201_CREATED})
+            return Response({"msg": "Liked Post"}, status=status.HTTP_201_CREATED)
         else:
             if like.is_like:
                 like.is_like = False
                 like.save()
-                return Response({"msg": "Unliked Post", "status": status.HTTP_200_OK})
+                return Response({"msg": "Unliked Post"}, status=status.HTTP_200_OK)
             else:
                 like.is_like = True
                 like.save()
-                return Response({"msg": "Liked Post", "status": status.HTTP_200_OK})
+                return Response({"msg": "Liked Post"}, status=status.HTTP_200_OK)
 
 
 class AddCommentView(viewsets.ViewSet):
@@ -141,5 +137,77 @@ class AddCommentView(viewsets.ViewSet):
         add_post_serializer = CommentSerializer(data=data)
         if add_post_serializer.is_valid():
             add_post_serializer.save()
-            return Response({"msg": "Post Created", "status": status.HTTP_201_CREATED})
+            return Response({"msg": "Comment Created"}, status=status.HTTP_201_CREATED)
         return Response(add_post_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class FriendRequestSendView(viewsets.ViewSet):
+    permission_classes = (IsAuthenticated,)
+
+    def retrieve(self, request, pk=None):
+        try:
+            to_user = User.objects.get(pk=pk)
+            friendrequest = Friendship.objects.filter(
+                from_user=request.user, to_user=to_user
+            ).first()
+            if not friendrequest:
+                friendrequest.create(from_user=request.user, to_user=to_user)
+                return Response({"msg": "Request send"}, status=status.HTTP_201_CREATED)
+            return Response(
+                {"msg": "Request already send"}, status=status.HTTP_201_CREATED
+            )
+        except User.DoesNotExist:
+            return Response(
+                {"msg": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+
+class FriendRequestAcceptView(viewsets.ViewSet):
+    permission_classes = (IsAuthenticated,)
+
+    def list(self, request):
+        friend_request = Friendship.objects.filter(to_user=request.user)
+        friend_request_serializer = FriendshipRequestSerializer(
+            friend_request, many=True
+        )
+        return Response(friend_request_serializer.data)
+
+    def retrieve(self, request, pk=None):
+        try:
+            friendrequest = Friendship.objects.get(pk=pk, to_user=request.user)
+            if friendrequest.is_accepted == False:
+                friendrequest.is_accepted = True
+                friendrequest.save()
+                print(friendrequest)
+                return Response(
+                    {"msg": "Request accepted"}, status=status.HTTP_201_CREATED
+                )
+            return Response(
+                {"msg": "Request already accepted"}, status=status.HTTP_201_CREATED
+            )
+        except User.DoesNotExist:
+            return Response(
+                {"msg": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+
+class UnfollowFriendRequestView(viewsets.ViewSet):
+    permission_classes = (IsAuthenticated,)
+
+    def retrieve(self, request, pk=None):
+        try:
+            friendrequest = Friendship.objects.get(pk=pk)
+            if friendrequest.is_accepted == True:
+                friendrequest.is_accepted = False
+                friendrequest.save()
+                print(friendrequest)
+                return Response(
+                    {"msg": "User Unfollowed"}, status=status.HTTP_201_CREATED
+                )
+            return Response(
+                {"msg": "User already Unfollowed"}, status=status.HTTP_201_CREATED
+            )
+        except User.DoesNotExist:
+            return Response(
+                {"msg": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
+            )
