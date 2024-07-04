@@ -56,4 +56,19 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         return user
     
-    
+class UserSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the User model.
+    """
+
+    class Meta:
+        """
+        Metadata options for the UserSerializer.
+        """
+
+        model = User
+        fields = "__all__"
+        
+    def validate(self, attrs):
+        
+        return super().validate(attrs)

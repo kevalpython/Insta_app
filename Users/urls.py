@@ -9,7 +9,7 @@ from . import views
 
 router = DefaultRouter()
 router.register("register", views.RegisterView, basename="register")
-
+router.register("updateuser", views.UpdateUserView, basename="updateuser")
 
 urlpatterns = [
     path("", include(router.urls)),
