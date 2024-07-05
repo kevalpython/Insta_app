@@ -13,7 +13,6 @@ router.register("friendrequestsend", views.FriendRequestSendView, basename="frie
 router.register("friendrequestaccepted", views.FriendRequestAcceptView, basename="friendrequestaccepted")
 router.register("unfollowfriendrequest", views.UnfollowFriendRequestView, basename="unfollowfriendrequest")
 router.register("rejectfriendrequest", views.RejectFriendRequestView, basename="rejectfriendrequest")
-router.register("alllllllllllll", views.PostlistalllViwe, basename="alllllllllllll")
 
 urlpatterns = [
     path("", include(router.urls)),
