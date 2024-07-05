@@ -1,47 +1,45 @@
 """
 This module contains serializer for passing data into json format.
 """
-
 from rest_framework import serializers
-from .models import (
-    Post,PostImageVideo,Like,Comment,Friendship
-)
+from .models import Post, PostImageVideo, Like, Comment, Friendship
+
+class PostImageVideoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PostImageVideo
+        fields = "__all__"
+
+class CommentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Comment
+        fields = "__all__"
+
+class IsLikeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Like
+        fields = "__all__"
 
 class PostSerializer(serializers.ModelSerializer):
+    comments = CommentSerializer(many=True, read_only=True)
+    likes_count = serializers.SerializerMethodField()
+    images_videos = PostImageVideoSerializer(many=True, required=False)
 
     class Meta:
         model = Post
-        fields = (
-            "user",
-            "content",
-        )
+        fields = ('id', 'user', 'content', 'comments', 'likes_count', 'images_videos')
+
+    def get_likes_count(self, obj):
+        return obj.like_set.count()
 
     def create(self, validated_data):
-        post = Post.objects.create(
-            user=validated_data["user"],
-            content=validated_data["content"],
-        )
+        images_videos_data = validated_data.pop('images_videos', [])
+        post = Post.objects.create(**validated_data)
+
+        for image_video_data in images_videos_data:
+            PostImageVideo.objects.create(post=post, **image_video_data)
+
         return post
 
-
-class ImageVideoSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = PostImageVideo
-        fields = ("user", "post", "file")
-
-class IsLikeSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = Like
-        fields = ("is_like",)
-
-
-class CommentSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = Comment
-        fields = ("user", "post", "content")
 
 class FriendshipRequestSerializer(serializers.ModelSerializer):
     class Meta:

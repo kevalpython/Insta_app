@@ -67,3 +67,5 @@ class Friendship(BaseModel):
 
     def __str__(self):
         return f"{self.from_user} follows {self.to_user}"
+
+

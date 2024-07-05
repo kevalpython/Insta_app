@@ -1,53 +1,60 @@
 from .models import *
 from .serializers import (
     PostSerializer,
-    ImageVideoSerializer,
-    IsLikeSerializer,
     CommentSerializer,
     FriendshipRequestSerializer,
 )
 from rest_framework import status, viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-
-
+from django.db.models import Q
+from django.shortcuts import get_object_or_404
 class AddPostView(viewsets.ViewSet):
     permission_classes = (IsAuthenticated,)
 
     def create(self, request):
-        user = request.user.id
-        files = dict((request.data).lists())["files"]
-        data = {"user": user, "content": request.data["content"]}
-        add_post_serializer = PostSerializer(data=data)
-        if add_post_serializer.is_valid():
-            post = add_post_serializer.save()
-            if files:
-                for file in files:
-                    image_data = {"user": user, "file": file, "post": post.id}
-                    image_serialzer = ImageVideoSerializer(data=image_data)
-                    if image_serialzer.is_valid():
-                        image_serialzer.save()
-            return Response({"msg": "Post Created"}, status=status.HTTP_201_CREATED)
-        return Response(add_post_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        data = {"user":request.user.id,'content': request.data['content'],'file':request.data['files']}
+        
+        serializer = PostSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save(user=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        print(serializer.errors)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class PostlistalllViwe(viewsets.ViewSet):
+    
+    def list(self, request):
+        posts = Post.objects.all().order_by('-created_at')
+        post_serializer = PostSerializer(posts, many=True)
+        return Response(post_serializer.data, status=status.HTTP_200_OK)
+    
+    
+class PostListView(viewsets.ViewSet):
+    permission_classes = (IsAuthenticated,)
+    
+    def list(self, request):
+        user = self.request.user
+        friends_ids = Friendship.objects.filter(from_user=user, is_accepted=True).values_list('to_user', flat=True)
+        # Retrieve the queryset of posts for the current user and their friends
+        posts = Post.objects.filter(Q(user=user) | Q(user__in=friends_ids)).order_by('-created_at')
+
+        # Serialize the queryset into data using PostSerializer
+        post_serializer = PostSerializer(posts, many=True)  # Use many=True because queryset contains multiple items
+        
+        
+        return Response(post_serializer.data, status=status.HTTP_200_OK)
+
 
 
 class PostView(viewsets.ViewSet):
 
-    def list(self, request):
-        posts = Post.objects.filter(user=request.user.id)
+    def list(self,request):
+        user = self.request.user
+        queryset = Post.objects.filter(user=user).order_by('-created_at')
+        post_serializer = PostSerializer(queryset,many=True)
+        return Response(post_serializer.data, status=status.HTTP_200_OK)
 
-        data = []
-        for post in posts:
-            image_video = PostImageVideo.objects.filter(post=post)
-            post_serializer = PostSerializer(post)
-            image_video_serializer = ImageVideoSerializer(image_video, many=True)
-            data.append(
-                {
-                    "post": post_serializer.data,
-                    "image_video": image_video_serializer.data,
-                }
-            )
-        return Response(data)
 
     def retrieve(self, request, pk=None):
         """
@@ -68,18 +75,10 @@ class PostView(viewsets.ViewSet):
             )
 
         post_serializer = PostSerializer(post)
-        image_video = PostImageVideo.objects.filter(post=post)
-        image_video_serializer = ImageVideoSerializer(image_video, many=True)
-        like = Like.objects.filter(post=post)
-        is_like = Like.objects.get(user=request.user.id)
-        is_like_serializer = IsLikeSerializer(is_like)
-        total_like = like.count()
+       
         return Response(
             {
                 "post": post_serializer.data,
-                "image_video": image_video_serializer.data,
-                "total_likes": total_like,
-                "is_like": is_like_serializer.data["is_like"],
             }
         )
 
@@ -141,25 +140,32 @@ class AddCommentView(viewsets.ViewSet):
         return Response(add_post_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+
 class FriendRequestSendView(viewsets.ViewSet):
     permission_classes = (IsAuthenticated,)
 
     def retrieve(self, request, pk=None):
-        try:
-            to_user = User.objects.get(pk=pk)
-            friendrequest = Friendship.objects.filter(
-                from_user=request.user, to_user=to_user
+        try:    
+            
+            to_user = get_object_or_404(User, pk=pk)
+
+            friend_request = Friendship.objects.filter(
+                from_user=request.user,
+                to_user=to_user
             ).first()
-            if not friendrequest:
-                friendrequest.create(from_user=request.user, to_user=to_user)
-                return Response({"msg": "Request send"}, status=status.HTTP_201_CREATED)
-            return Response(
-                {"msg": "Request already send"}, status=status.HTTP_201_CREATED
-            )
+
+            if friend_request is None:
+                friend_request = Friendship.objects.create(
+                    from_user=request.user,
+                    to_user=to_user
+                )
+                return Response({"msg": "Friend request sent"}, status=status.HTTP_201_CREATED)
+            else:
+                return Response({"msg": "Friend request already sent"}, status=status.HTTP_200_OK)
+
         except User.DoesNotExist:
-            return Response(
-                {"msg": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"msg": "User does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
 
 
 class FriendRequestAcceptView(viewsets.ViewSet):
@@ -211,3 +217,15 @@ class UnfollowFriendRequestView(viewsets.ViewSet):
             return Response(
                 {"msg": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
             )
+
+class RejectFriendRequestView(viewsets.ViewSet):
+    permission_classes = (IsAuthenticated,)
+
+    def destroy(self, request, pk=None):
+        reject_friend_request = Friendship.objects.filter(pk=pk, to_user=request.user.id)
+        if reject_friend_request:
+            reject_friend_request.delete()
+            return Response({"msg": "Friend request rejected"}, status=status.HTTP_201_CREATED)
+        return Response(
+            {"msg": "Friendship Not Found"}, status_code=status.HTTP_404_NOT_FOUND
+        )

@@ -14,7 +14,6 @@ from Users.models import User
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
-        print("hiiii")
         query_string = self.scope["query_string"].decode()
         query_params = parse_qs(query_string)
         token_key = query_params.get("token", [None])[0]
@@ -52,9 +51,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
             user = User.objects.get(id=user_id)
             return user
         except jwt.ExpiredSignatureError:
-            return None  
+            return None
         except (jwt.InvalidTokenError, User.DoesNotExist):
-            return None  
+            return None
 
     def disconnect(self, close_code):
         async_to_sync(self.channel_layer.group_discard)(
@@ -96,7 +95,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def get_messages(self, conversation):
-        return Message.objects.filter(conversation=conversation)
+        return Message.objects.filter(conversation=conversation).order_by('-created_at')
 
     async def chat_message(self, event):
         try:
