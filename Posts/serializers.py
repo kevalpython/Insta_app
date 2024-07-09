@@ -5,6 +5,8 @@ from rest_framework import serializers
 from .models import Post, PostImageVideo, Like, Comment, Friendship
 
 class PostImageVideoSerializer(serializers.ModelSerializer):
+    file = serializers.FileField(max_length=None, use_url=True)
+    
     class Meta:
         model = PostImageVideo
         fields = "__all__"
@@ -21,24 +23,16 @@ class IsLikeSerializer(serializers.ModelSerializer):
 
 class PostSerializer(serializers.ModelSerializer):
     comments = CommentSerializer(many=True, read_only=True)
-    likes_count = serializers.SerializerMethodField()
-    images_videos = PostImageVideoSerializer(many=True, required=False)
-
+    post_images_videos = PostImageVideoSerializer(source="postimagevideos",read_only=True,many=True)
+    total_likes = serializers.SerializerMethodField()
+    all_likes = IsLikeSerializer(source = "likes",read_only=True,many=True)
     class Meta:
         model = Post
-        fields = ('id', 'user', 'content', 'comments', 'likes_count', 'images_videos')
+        fields = ('id', 'user', 'content', 'comments', 'post_images_videos', 'all_likes','total_likes')
+    
+    def get_total_likes(self, obj):
+        return Like.objects.filter(post=obj).count()
 
-    def get_likes_count(self, obj):
-        return obj.like_set.count()
-
-    def create(self, validated_data):
-        images_videos_data = validated_data.pop('files', [])
-        post = Post.objects.create(**validated_data)
-
-        for image_video_data in images_videos_data:
-            PostImageVideo.objects.create(post=post, **image_video_data)
-
-        return post
 
 
 class FriendshipRequestSerializer(serializers.ModelSerializer):

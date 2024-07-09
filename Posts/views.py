@@ -3,6 +3,7 @@ from .serializers import (
     PostSerializer,
     CommentSerializer,
     FriendshipRequestSerializer,
+    PostImageVideoSerializer
 )
 from rest_framework import status, viewsets
 from rest_framework.permissions import IsAuthenticated
@@ -15,41 +16,59 @@ class AddPostView(viewsets.ViewSet):
     permission_classes = (IsAuthenticated,)
 
     def create(self, request):
-        data = {
-            "user": request.user.id,
-            "content": request.data["content"],
-            "file": request.data["files"],
-        }
+        user = request.user.id
+        files = dict((request.data).lists())["files"]
+        data = {"user": user, "content": request.data["content"]}
+        add_post_serializer = PostSerializer(data=data)
+        if add_post_serializer.is_valid():
+            post = add_post_serializer.save()
+            if files:
+                for file in files:
+                    image_data = {"user": user, "file": file, "post": post.id}
+                    image_serialzer = PostImageVideoSerializer(data=image_data)
+                    if image_serialzer.is_valid():
+                        image_serialzer.save()
+            return Response({"msg": "Post Created", "status": status.HTTP_201_CREATED})
+        return Response(add_post_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        serializer = PostSerializer(data=data)
-        if serializer.is_valid():
-            serializer.save(user=request.user)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        print(serializer.errors)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+# class PostListView(viewsets.ViewSet):
+#     permission_classes = (IsAuthenticated,)
+
+#     def list(self, request):
+#         user = self.request.user
+#         friends_ids = Friendship.objects.filter(
+#             from_user=user, is_accepted=True
+#         ).values_list("to_user", flat=True)
+
+#         posts = Post.objects.filter(Q(user=user) | Q(user__in=friends_ids)).order_by(
+#             "-created_at"
+#         )
+#         post_serializer = PostSerializer(
+#             posts, many=True
+#         )
+
+#         return Response(post_serializer.data, status=status.HTTP_200_OK)
 
 class PostListView(viewsets.ViewSet):
     permission_classes = (IsAuthenticated,)
 
     def list(self, request):
+        context={"request":request}
         user = self.request.user
         friends_ids = Friendship.objects.filter(
             from_user=user, is_accepted=True
         ).values_list("to_user", flat=True)
-        # Retrieve the queryset of posts for the current user and their friends
+
         posts = Post.objects.filter(Q(user=user) | Q(user__in=friends_ids)).order_by(
             "-created_at"
         )
-
-        # Serialize the queryset into data using PostSerializer
-        post_serializer = PostSerializer(
-            posts, many=True
-        )  # Use many=True because queryset contains multiple items
+        post_serializer = PostSerializer(posts,context=context, many=True)
 
         return Response(post_serializer.data, status=status.HTTP_200_OK)
-
-
+    
+    
+    
 class PostView(viewsets.ViewSet):
 
     def list(self, request):
