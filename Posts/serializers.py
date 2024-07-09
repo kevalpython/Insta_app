@@ -32,7 +32,7 @@ class PostSerializer(serializers.ModelSerializer):
         return obj.like_set.count()
 
     def create(self, validated_data):
-        images_videos_data = validated_data.pop('images_videos', [])
+        images_videos_data = validated_data.pop('files', [])
         post = Post.objects.create(**validated_data)
 
         for image_video_data in images_videos_data:
