@@ -27,7 +27,7 @@ class LikeAdmin(admin.ModelAdmin):
     This class displays user data in the admin panel.
     """
 
-    list_display = ["id", "user", "post"]
+    list_display = ["id", "user", "post","is_like"]
 
 
 @admin.register(Comment)

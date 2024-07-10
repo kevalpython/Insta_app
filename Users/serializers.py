@@ -72,3 +72,10 @@ class UserSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         
         return super().validate(attrs)
+
+
+class UserLoginSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(max_length=255)
+    class Meta:
+        model = User
+        fields = ['username', 'password']

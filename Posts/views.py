@@ -31,30 +31,11 @@ class AddPostView(viewsets.ViewSet):
             return Response({"msg": "Post Created", "status": status.HTTP_201_CREATED})
         return Response(add_post_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
-# class PostListView(viewsets.ViewSet):
-#     permission_classes = (IsAuthenticated,)
-
-#     def list(self, request):
-#         user = self.request.user
-#         friends_ids = Friendship.objects.filter(
-#             from_user=user, is_accepted=True
-#         ).values_list("to_user", flat=True)
-
-#         posts = Post.objects.filter(Q(user=user) | Q(user__in=friends_ids)).order_by(
-#             "-created_at"
-#         )
-#         post_serializer = PostSerializer(
-#             posts, many=True
-#         )
-
-#         return Response(post_serializer.data, status=status.HTTP_200_OK)
-
 class PostListView(viewsets.ViewSet):
     permission_classes = (IsAuthenticated,)
 
     def list(self, request):
-        context={"request":request}
+        context={"request":request,'user':request.user}
         user = self.request.user
         friends_ids = Friendship.objects.filter(
             from_user=user, is_accepted=True
@@ -64,7 +45,7 @@ class PostListView(viewsets.ViewSet):
             "-created_at"
         )
         post_serializer = PostSerializer(posts,context=context, many=True)
-
+        
         return Response(post_serializer.data, status=status.HTTP_200_OK)
     
     

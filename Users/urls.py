@@ -9,11 +9,12 @@ from . import views
 
 router = DefaultRouter()
 router.register("register", views.RegisterView, basename="register")
-router.register("updateuser", views.UpdateUserView, basename="updateuser")
+router.register("userprofile", views.UserProfileView, basename="userprofile")
 
 urlpatterns = [
     path("", include(router.urls)),
-    path("login/", TokenObtainPairView.as_view(), name="login"),
+    path("login/", views.UserLoginView.as_view(), name="login"),
     path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("token/verify/", TokenVerifyView.as_view(), name="verify"),
+    path("logout/",views.LogoutView.as_view(), name="logout"),
 ]

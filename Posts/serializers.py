@@ -24,15 +24,25 @@ class IsLikeSerializer(serializers.ModelSerializer):
 class PostSerializer(serializers.ModelSerializer):
     comments = CommentSerializer(many=True, read_only=True)
     post_images_videos = PostImageVideoSerializer(source="postimagevideos",read_only=True,many=True)
+    user_name = serializers.SerializerMethodField()
     total_likes = serializers.SerializerMethodField()
+    has_like = serializers.SerializerMethodField()
+
     all_likes = IsLikeSerializer(source = "likes",read_only=True,many=True)
     class Meta:
         model = Post
-        fields = ('id', 'user', 'content', 'comments', 'post_images_videos', 'all_likes','total_likes')
+        fields = ('id', 'user_name', 'content', 'comments', 'post_images_videos', 'has_like','all_likes','total_likes')
     
     def get_total_likes(self, obj):
-        return Like.objects.filter(post=obj).count()
+        return Like.objects.filter(post=obj, is_like=True).count()
 
+    def get_user_name(self, obj):
+        return obj.user.username
+    
+    def get_has_like(self,obj):
+        like=Like.objects.filter(user=self.context['user'],post=obj).first()
+        print(like.is_like)
+        return like.is_like
 
 
 class FriendshipRequestSerializer(serializers.ModelSerializer):
