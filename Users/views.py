@@ -9,6 +9,9 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import  User
 from .serializers import RegisterSerializer,UserSerializer,UserLoginSerializer
+import jwt
+from django.conf import settings
+from Posts.management.authentication import JWTAuthentication
 
 class RegisterView(viewsets.ViewSet):
     permission_classes = (AllowAny,)
@@ -22,13 +25,22 @@ class RegisterView(viewsets.ViewSet):
         print(serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
+from rest_framework_simplejwt.tokens import RefreshToken
+import jwt
+
 def get_tokens_for_user(user):
     refresh = RefreshToken.for_user(user)
-    print(str(refresh))
+    access = refresh.access_token
+        
+    # Convert the tokens to strings before encoding
+    refresh_encoded = jwt.encode({"refresh": str(refresh)}, settings.SECRET_KEY, algorithm="HS256")
+    access_encoded = jwt.encode({"access": str(access)}, settings.SECRET_KEY, algorithm="HS256")
+
     return {
-        'refresh': str(refresh),
-        'access': str(refresh.access_token),
+        'refresh': refresh_encoded,
+        'access': access_encoded,
     }
+
 
 class UserLoginView(APIView):
     def post(self, request, format=None):
@@ -46,7 +58,7 @@ class UserLoginView(APIView):
     
 class UserProfileView(viewsets.ViewSet):
     queryset = User.objects.all()
-    permission_classes = (IsAuthenticated,)
+    authentication_classes = [JWTAuthentication]
     serializer_class = UserSerializer
 
     def list(self, request):
@@ -82,13 +94,18 @@ class UserProfileView(viewsets.ViewSet):
 
 
 class LogoutView(APIView):
-    permission_classes = (IsAuthenticated,)
+    authentication_classes = [JWTAuthentication]
 
     def post(self, request):
         try:
+            print("hii")
             refresh_token = request.data["refresh_token"]
-            token = RefreshToken(refresh_token)
+            decode_refresh = jwt.decode(refresh_token, settings.SECRET_KEY, algorithms=['HS256'])
+            print(decode_refresh["refresh"])
+            token = RefreshToken(decode_refresh["refresh"])
+            print(token)
             token.blacklist()
             return Response(status=status.HTTP_205_RESET_CONTENT)
         except Exception as e:
+            print(e)
             return Response(status=status.HTTP_400_BAD_REQUEST)

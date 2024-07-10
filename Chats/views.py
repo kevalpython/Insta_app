@@ -6,9 +6,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from Users.models import User
 from django.db.models import Q
-
+from Posts.management.authentication import JWTAuthentication
 class ConversationView(viewsets.ViewSet):
-    permission_classes = (IsAuthenticated,)
+    authentication_classes = [JWTAuthentication.authenticate]
     
     def retrieve(self, request, pk=None):
         try:

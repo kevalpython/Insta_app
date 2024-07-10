@@ -34,6 +34,7 @@ class PostSerializer(serializers.ModelSerializer):
         fields = ('id', 'user_name', 'content', 'comments', 'post_images_videos', 'has_like','all_likes','total_likes')
     
     def get_total_likes(self, obj):
+        print(Like.objects.filter(post=obj, is_like=True).count())
         return Like.objects.filter(post=obj, is_like=True).count()
 
     def get_user_name(self, obj):
@@ -41,11 +42,23 @@ class PostSerializer(serializers.ModelSerializer):
     
     def get_has_like(self,obj):
         like=Like.objects.filter(user=self.context['user'],post=obj).first()
-        print(like.is_like)
         return like.is_like
 
 
 class FriendshipRequestSerializer(serializers.ModelSerializer):
+    from_user = serializers.SerializerMethodField()
+    to_user = serializers.SerializerMethodField()
+    from_user_img = serializers.SerializerMethodField()
     class Meta:
         model = Friendship
-        fields = ("from_user", "to_user", "is_accepted")
+        fields = ("from_user", "to_user", "is_accepted","from_user_img")
+        
+    def get_from_user(self, obj):
+        return obj.from_user.username
+    
+    def get_to_user(self, obj):
+        return obj.to_user.username
+    
+    def get_from_user_img(self, obj):
+        print(obj.from_user.profile_img)
+        return True

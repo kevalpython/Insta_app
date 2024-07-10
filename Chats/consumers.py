@@ -41,13 +41,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
             )
         else:
             await self.close()
-
+    
     async def verify_jwt_token(self, token):
         try:
             decoded_payload = jwt.decode(
                 token, settings.SECRET_KEY, algorithms=["HS256"]
             )
-            user_id = decoded_payload["id"]
+            decode_access = jwt.decode(decoded_payload, settings.SECRET_KEY, algorithms=['HS256'])
+            user_id = decode_access["id"]
             user = User.objects.get(id=user_id)
             return user
         except jwt.ExpiredSignatureError:
