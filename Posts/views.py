@@ -3,7 +3,7 @@ from .serializers import (
     PostSerializer,
     CommentSerializer,
     FriendshipRequestSerializer,
-    PostImageVideoSerializer
+    PostImageVideoSerializer,AddPostSerializer
 )
 from rest_framework import status, viewsets
 from rest_framework.response import Response
@@ -16,9 +16,10 @@ class AddPostView(viewsets.ViewSet):
     
     def create(self, request):
         user = request.user.id
-        files = dict((request.data).lists())["files"]
+        print(request.data["content"])
+        files = request.FILES.getlist("files")
         data = {"user": user, "content": request.data["content"]}
-        add_post_serializer = PostSerializer(data=data)
+        add_post_serializer = AddPostSerializer(data=data)
         if add_post_serializer.is_valid():
             post = add_post_serializer.save()
             if files:
@@ -27,7 +28,7 @@ class AddPostView(viewsets.ViewSet):
                     image_serialzer = PostImageVideoSerializer(data=image_data)
                     if image_serialzer.is_valid():
                         image_serialzer.save()
-            return Response({"msg": "Post Created", "status": status.HTTP_201_CREATED})
+            return Response({"msg": "Post Created"},status=status.HTTP_201_CREATED)
         return Response(add_post_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class PostListView(viewsets.ViewSet):
@@ -36,6 +37,7 @@ class PostListView(viewsets.ViewSet):
     def list(self, request):
         context = {"request": request, 'user': request.user}
         user = request.user
+        print(user)
         friends_ids = Friendship.objects.filter(
             from_user=user, is_accepted=True
         ).values_list("to_user", flat=True)
@@ -51,9 +53,10 @@ class PostView(viewsets.ViewSet):
     authentication_classes = [JWTAuthentication]
 
     def list(self, request):
+        context = {"request": request, 'user': request.user}
         user = self.request.user
         queryset = Post.objects.filter(user=user).order_by("-created_at")
-        post_serializer = PostSerializer(queryset, many=True)
+        post_serializer = PostSerializer(queryset, context=context, many=True)
         return Response(post_serializer.data, status=status.HTTP_200_OK)
 
     def retrieve(self, request, pk=None):
@@ -153,14 +156,18 @@ class FriendRequestAcceptView(viewsets.ViewSet):
     authentication_classes = [JWTAuthentication]
 
     def list(self, request):
-        friend_request = Friendship.objects.filter(to_user=request.user)
+        print("====>",request.user)
+        context = {"request":request}
+        friend_request = Friendship.objects.filter(to_user=request.user, is_accepted = False)
+
         friend_request_serializer = FriendshipRequestSerializer(
-            friend_request, many=True
+            friend_request,context=context, many=True
         )
         return Response(friend_request_serializer.data)
 
     def retrieve(self, request, pk=None):
         try:
+            print(pk)
             friendrequest = Friendship.objects.get(pk=pk, to_user=request.user)
             if not friendrequest.is_accepted:
                 friendrequest.is_accepted = True

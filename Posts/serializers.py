@@ -3,7 +3,7 @@ This module contains serializer for passing data into json format.
 """
 from rest_framework import serializers
 from .models import Post, PostImageVideo, Like, Comment, Friendship
-
+from urllib.parse import urljoin
 class PostImageVideoSerializer(serializers.ModelSerializer):
     file = serializers.FileField(max_length=None, use_url=True)
     
@@ -42,8 +42,17 @@ class PostSerializer(serializers.ModelSerializer):
     
     def get_has_like(self,obj):
         like=Like.objects.filter(user=self.context['user'],post=obj).first()
-        return like.is_like
+        if like:
+            return like.is_like
+        return None
 
+class AddPostSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Post
+        fields = ('user', 'content')
+    
+
+    
 
 class FriendshipRequestSerializer(serializers.ModelSerializer):
     from_user = serializers.SerializerMethodField()
@@ -51,7 +60,7 @@ class FriendshipRequestSerializer(serializers.ModelSerializer):
     from_user_img = serializers.SerializerMethodField()
     class Meta:
         model = Friendship
-        fields = ("from_user", "to_user", "is_accepted","from_user_img")
+        fields = ("id","from_user", "to_user", "is_accepted","from_user_img")
         
     def get_from_user(self, obj):
         return obj.from_user.username
@@ -60,5 +69,8 @@ class FriendshipRequestSerializer(serializers.ModelSerializer):
         return obj.to_user.username
     
     def get_from_user_img(self, obj):
-        print(obj.from_user.profile_img)
-        return True
+        request = self.context.get('request')
+        profile_image = obj.from_user.profile_img
+        if profile_image and request:
+            return urljoin(request.build_absolute_uri('/'), profile_image.url)
+        return None
