@@ -9,5 +9,5 @@ class UserAdmin(admin.ModelAdmin):
     This class displays user data in the admin panel.
     """
 
-    list_display = ["id","username", "first_name", "email",'profile_img']
+    list_display = ["id","username", "first_name","last_name", "email",'profile_img']
     

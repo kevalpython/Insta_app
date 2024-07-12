@@ -10,6 +10,7 @@ from . import views
 router = DefaultRouter()
 router.register("register", views.RegisterView, basename="register")
 router.register("userprofile", views.UserProfileView, basename="userprofile")
+router.register("searchuser", views.SearchUserView, basename="searchuser")
 
 urlpatterns = [
     path("", include(router.urls)),

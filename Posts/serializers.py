@@ -2,6 +2,7 @@
 This module contains serializer for passing data into json format.
 """
 from rest_framework import serializers
+from Users.models import User
 from .models import Post, PostImageVideo, Like, Comment, Friendship
 from urllib.parse import urljoin
 class PostImageVideoSerializer(serializers.ModelSerializer):
@@ -34,7 +35,6 @@ class PostSerializer(serializers.ModelSerializer):
         fields = ('id', 'user_name', 'content', 'comments', 'post_images_videos', 'has_like','all_likes','total_likes')
     
     def get_total_likes(self, obj):
-        print(Like.objects.filter(post=obj, is_like=True).count())
         return Like.objects.filter(post=obj, is_like=True).count()
 
     def get_user_name(self, obj):
@@ -51,9 +51,6 @@ class AddPostSerializer(serializers.ModelSerializer):
         model = Post
         fields = ('user', 'content')
     
-
-    
-
 class FriendshipRequestSerializer(serializers.ModelSerializer):
     from_user = serializers.SerializerMethodField()
     to_user = serializers.SerializerMethodField()
@@ -74,3 +71,10 @@ class FriendshipRequestSerializer(serializers.ModelSerializer):
         if profile_image and request:
             return urljoin(request.build_absolute_uri('/'), profile_image.url)
         return None
+
+class UsernameSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = User
+        fields = ("username",)
+     

@@ -1,3 +1,4 @@
+
 """
 This module contains serializer for passing data into json format.
 """
@@ -5,9 +6,9 @@ This module contains serializer for passing data into json format.
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
-
+from Posts.models import Friendship
 from .models import User
-
+from django.db.models import Q
 
 class RegisterSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(
@@ -79,3 +80,23 @@ class UserLoginSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['username', 'password']
+
+
+class UserSearchSerializer(serializers.ModelSerializer):
+    friend_request = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'profile_img', 'first_name', 'last_name', 'friend_request']
+        
+    def get_friend_request(self, obj):
+        # Get the current user from the request context
+        request = self.context.get('request')
+        if request and hasattr(request, 'user'):
+            friendship = Friendship.objects.filter(Q(from_user=request.user, to_user=obj.id) | Q(from_user=obj.id, to_user=request.user)).first()
+            if friendship:
+                if friendship.is_accepted:
+                    return "accepted"
+                return "requested"
+        return "not"
+    

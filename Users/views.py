@@ -2,31 +2,30 @@ from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets
 
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework.permissions import AllowAny,IsAuthenticated
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from django.contrib.auth import authenticate
 from rest_framework.views import APIView
-from rest_framework_simplejwt.tokens import RefreshToken
 from .models import  User
-from .serializers import RegisterSerializer,UserSerializer,UserLoginSerializer
+from .serializers import RegisterSerializer,UserSerializer,UserLoginSerializer,UserSearchSerializer
 import jwt
 from django.conf import settings
 from Posts.management.authentication import JWTAuthentication
+from rest_framework import filters
+
 
 class RegisterView(viewsets.ViewSet):
     permission_classes = (AllowAny,)
 
     def create(self, request):
-        print("request = ",request.data)
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
             return Response({"msg": "User Created"},status=status.HTTP_201_CREATED)
-        print(serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-from rest_framework_simplejwt.tokens import RefreshToken
-import jwt
+
+
 
 def get_tokens_for_user(user):
     refresh = RefreshToken.for_user(user)
@@ -78,11 +77,11 @@ class UserProfileView(viewsets.ViewSet):
         serializer = UserSerializer(user,data=request.data,context=request.user,partial=True)
         if serializer.is_valid():
             serializer.save()   
-            return Response({"msg": "User Updated", "status": status.HTTP_201_CREATED})
+            return Response({"msg": "User Updated"},status=status.HTTP_200_OK )
+        print(serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def destroy(self, request, pk=None):
-        print("request =",request.data)
         user = get_object_or_404(self.queryset, pk=pk)
         if user.profile_img:
             import os
@@ -90,7 +89,7 @@ class UserProfileView(viewsets.ViewSet):
             if os.path.isfile(user.profile_img.path):
                 shutil.rmtree(f'media/images/{user.username}')
         user.delete()
-        return Response({"msg": "User Deleted", "status": status.HTTP_201_CREATED})
+        return Response({"msg": "User Deleted"},status=status.HTTP_200_OK)
 
 
 class LogoutView(APIView):
@@ -98,14 +97,22 @@ class LogoutView(APIView):
 
     def post(self, request):
         try:
-            print("hii")
             refresh_token = request.data["refresh_token"]
             decode_refresh = jwt.decode(refresh_token, settings.SECRET_KEY, algorithms=['HS256'])
-            print(decode_refresh["refresh"])
             token = RefreshToken(decode_refresh["refresh"])
-            print(token)
             token.blacklist()
             return Response(status=status.HTTP_205_RESET_CONTENT)
         except Exception as e:
-            print(e)
             return Response(status=status.HTTP_400_BAD_REQUEST)
+        
+
+class SearchUserView(viewsets.ModelViewSet):
+    authentication_classes = [JWTAuthentication]
+    queryset = User.objects.all()
+    serializer_class = UserSearchSerializer
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['username', 'first_name', 'last_name']
+    
+    def get_serializer_context(self):
+        # Pass the request context to the serializer
+        return {'request': self.request}
