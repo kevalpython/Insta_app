@@ -87,7 +87,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def get_messages(self, conversation):
-        return Message.objects.filter(conversation=conversation).order_by('-created_at')
+        return Message.objects.filter(conversation=conversation).order_by('created_at')
 
     async def chat_message(self, event):
         try:
