@@ -50,3 +50,4 @@ class Message(BaseModel):
             str: The content of the message.
         """
         return self.text
+

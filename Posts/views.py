@@ -199,11 +199,9 @@ class LikePostView(viewsets.ViewSet):
                 {"msg": "Post does not exist"}, status=status.HTTP_404_NOT_FOUND
             )
 
-        like, created = Like.objects.get_or_create(post=post, user=request.user)
+        like, created = Like.objects.get_or_create(post=post, user=request.user,is_like=False)
 
         if created:
-            like.is_like = True
-            like.save()
             return Response({"msg": "Liked Post"}, status=status.HTTP_201_CREATED)
         else:
             if like.is_like:

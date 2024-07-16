@@ -19,7 +19,8 @@ class Post(BaseModel):
 
 
 def upload_post_file(instance, filename):
-    return f"images/posts/images/{filename}"
+    print("hii",instance.user.username)
+    return f"images/{instance.user.username}/Posts/{filename}"
 
 
 class PostImageVideo(BaseModel):
@@ -36,7 +37,7 @@ class Like(BaseModel):
     """
         Likes model for Post.
     """
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE )
     post = models.ForeignKey(Post, on_delete=models.CASCADE,related_name="likes")
     is_like = models.BooleanField(default=False)
 

@@ -16,48 +16,7 @@ from .serializers import MessageSerializer
 from Users.models import User
 
 
-class ChatConsumer(AsyncWebsocketConsumer):
-    """
-    A consumer to handle WebSocket connections for chat functionality.
-
-    Attributes:
-        user (User or AnonymousUser): The user connecting to the WebSocket.
-        conversation_name (str): The name of the conversation room.
-        room_group_name (str): The name of the channel layer group.
-    """
-
-    async def connect(self):
-        """
-        Handles the connection event when a client attempts to connect to the WebSocket.
-        Verifies the JWT token, adds the user to the channel layer group, and sends the chat history.
-        """
-        query_string = self.scope["query_string"].decode()
-        query_params = parse_qs(query_string)
-        token_key = query_params.get("token", [None])[0]
-
-        if token_key:
-            self.user = await self.verify_jwt_token(token_key)
-        else:
-            self.user = AnonymousUser()
-
-        if self.user.is_authenticated:
-            self.conversation_name = self.scope["url_route"]["kwargs"][
-                "conversation_name"
-            ]
-            self.room_group_name = f"chat_{self.conversation_name}"
-
-            await self.channel_layer.group_add(self.room_group_name, self.channel_name)
-            await self.accept()
-
-            conversation = await self.get_conversation(self.conversation_name)
-            messages = await self.get_messages(conversation)
-            message_serializer = MessageSerializer(messages, many=True)
-
-            await self.send(text_data=json.dumps(message_serializer.data))
-        else:
-            await self.close()
-
-    async def verify_jwt_token(self, token):
+def verify_jwt_token(token):
         """
         Verifies the JWT token to authenticate the user.
 
@@ -81,6 +40,49 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return None
         except (jwt.InvalidTokenError, User.DoesNotExist):
             return None
+
+
+class ChatConsumer(AsyncWebsocketConsumer):
+    """
+    A consumer to handle WebSocket connections for chat functionality.
+
+    Attributes:
+        user (User or AnonymousUser): The user connecting to the WebSocket.
+        conversation_name (str): The name of the conversation room.
+        room_group_name (str): The name of the channel layer group.
+    """
+
+    async def connect(self):
+        """
+        Handles the connection event when a client attempts to connect to the WebSocket.
+        Verifies the JWT token, adds the user to the channel layer group, and sends the chat history.
+        """
+        query_string = self.scope["query_string"].decode()
+        query_params = parse_qs(query_string)
+        token_key = query_params.get("token", [None])[0]
+
+        if token_key:
+            self.user = verify_jwt_token(token_key)
+        else:
+            self.user = AnonymousUser()
+
+        if self.user.is_authenticated:
+            self.conversation_name = self.scope["url_route"]["kwargs"][
+                "conversation_name"
+            ]
+            self.room_group_name = f"chat_{self.conversation_name}"
+
+            await self.channel_layer.group_add(self.room_group_name, self.channel_name)
+            await self.accept()
+
+            conversation = await self.get_conversation(self.conversation_name)
+            messages = await self.get_messages(conversation)
+            message_serializer = MessageSerializer(messages, many=True)
+
+            await self.send(text_data=json.dumps(message_serializer.data))
+        else:
+            await self.close()
+
 
     async def disconnect(self, close_code):
         """

@@ -90,28 +90,20 @@ class ConversationSerializer(serializers.ModelSerializer):
 class MessageSerializer(serializers.ModelSerializer):
     """
     Serializer for Message model to include message data.
-
-    Attributes:
-        Meta (class): Meta class specifying the model and fields to include.
     """
-    
+    sender_username = serializers.CharField(source='sender.username', read_only=True)
+
     class Meta:
         model = Message
-        fields = ("sender", "text", "sender", "conversation_id")
+        fields = ("sender_username", "text", "conversation")
 
     def create(self, validated_data):
         """
         Method to create a new Message instance.
-
-        Args:
-            validated_data (dict): Validated data for creating the Message instance.
-
-        Returns:
-            Message: The created Message instance.
         """
         message = Message.objects.create(
             sender=validated_data["sender"],
             text=validated_data["text"],
-            conversation_id=validated_data["conversation_id"],
+            conversation=validated_data["conversation"],
         )
         return message

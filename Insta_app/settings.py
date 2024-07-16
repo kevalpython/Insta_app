@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/5.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
-
+import logging
 import os
 from pathlib import Path
 import datetime
@@ -153,6 +153,7 @@ REST_FRAMEWORK = {
 
 
 
+
 ASGI_APPLICATION = 'Insta_app.asgi.application'
 CHANNEL_LAYERS = {
     "default": {
@@ -171,3 +172,5 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': datetime.timedelta(days=1),
     'USER_ID_CLAIM': 'id',
 }
+
+
