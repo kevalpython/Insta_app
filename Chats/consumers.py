@@ -11,7 +11,7 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth.models import AnonymousUser
 from django.conf import settings
-from .models import Message, Conversation
+from .models import Message, Conversation,Notification
 from .serializers import MessageSerializer
 from Users.models import User
 
@@ -84,12 +84,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.close()
 
 
-    async def disconnect(self, close_code):
+    async def disconnect(self, close):
         """
         Handles the disconnection event when a client disconnects from the WebSocket.
 
-        Args:
-            close_code (int): The close code for the disconnection.
         """
         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
@@ -142,10 +140,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
         Returns:
             Message: The saved message object.
         """
+       
         sender = User.objects.get(pk=sender_id)
         new_message = Message.objects.create(
             sender=sender, text=message, conversation=conversation
         )
+        conversation = Conversation.objects.get(conversation_name=conversation)
+        recipients = conversation.participants.exclude(pk=sender.pk)
+        for user in recipients:
+            Notification.objects.create(message=new_message, user=user )
         return new_message
 
     @database_sync_to_async
@@ -173,3 +176,42 @@ class ChatConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             print(f"Error in chat_message method: {str(e)}")
             raise e
+
+class NotificationConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        self.username = self.scope["url_route"]["kwargs"]["username"]
+        await self.channel_layer.group_add(self.username, self.channel_name)
+        await self.accept()
+        count=await self.get_notifications(self.username)
+        await self.send(text_data=json.dumps({"count":count}))
+        
+    async def disconnect(self, close_code):
+        """
+        Handles the disconnection event when a client disconnects from the WebSocket.
+
+        Args:
+            close_code (int): The close code for the disconnection.
+        """
+        await self.channel_layer.group_discard(self.username, self.channel_name)
+        
+    
+    async def send_notification(self, event):
+        data = json.loads(event.get('value'))
+        count = data['count']
+        await self.send(text_data=json.dumps({
+            'count':count
+        }))
+        
+    
+    @database_sync_to_async
+    def get_notifications(self, username):
+        """
+        Retrieves all messages for a given conversation, ordered by creation time.
+
+        Args:
+            conversation (Conversation): The conversation object.
+
+        Returns:
+            QuerySet: The list of message objects.
+        """
+        return Notification.objects.filter(user__username=username,is_seen=False).count()

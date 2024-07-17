@@ -16,5 +16,14 @@ class MessageAdmin(admin.ModelAdmin):
     This class displays messages in the admin panel.
     """
 
-    list_display = ["id", "conversation", "sender", "text"]
+    list_display = ["id", "conversation", "sender", "text", "is_seen"]
 
+
+
+@admin.register(Notification)
+class NotificationAdmin(admin.ModelAdmin):
+    """
+    This class displays Notification in the admin panel.
+    """
+
+    list_display = ["id", "message", "user", "is_seen"]

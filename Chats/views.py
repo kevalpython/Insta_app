@@ -1,7 +1,7 @@
 """
 Viewset for handling conversation-related operations.
 """
-from .models import Conversation
+from .models import Conversation,Notification
 from .serializers import ConversationSerializer, SendConversationSerializer
 from rest_framework import status, viewsets
 from rest_framework.response import Response
@@ -35,6 +35,10 @@ class ConversationView(viewsets.ViewSet):
         conversation_serializer = SendConversationSerializer(
             conversations, context=context, many=True
         )
+        notification=Notification.objects.filter(user=request.user,is_seen=False)
+        for i in notification:
+            i.is_seen=True
+            i.save()
         return Response(conversation_serializer.data)
 
     def retrieve(self, request, pk=None):
@@ -64,12 +68,12 @@ class ConversationView(viewsets.ViewSet):
                     conversation_name=receiver_conv_name
                 )
                 conversation_create.participants.add(sender_id, receiver_id)
-
             if conversation:
                 conversation_serializer = ConversationSerializer(conversation)
             else:
                 conversation_serializer = ConversationSerializer(conversation_create)
-
+            
+            
             return Response(
                 {
                     "msg": (

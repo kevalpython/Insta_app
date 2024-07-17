@@ -199,19 +199,17 @@ class LikePostView(viewsets.ViewSet):
                 {"msg": "Post does not exist"}, status=status.HTTP_404_NOT_FOUND
             )
 
-        like, created = Like.objects.get_or_create(post=post, user=request.user,is_like=False)
+        like, created = Like.objects.get_or_create(post=post, user=request.user)
 
-        if created:
-            return Response({"msg": "Liked Post"}, status=status.HTTP_201_CREATED)
+        if created or not like.is_like:
+            like.is_like = True
+            like.save()
+            return Response({"msg": "Liked Post"}, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
         else:
-            if like.is_like:
-                like.is_like = False
-                like.save()
-                return Response({"msg": "Unliked Post"}, status=status.HTTP_200_OK)
-            else:
-                like.is_like = True
-                like.save()
-                return Response({"msg": "Liked Post"}, status=status.HTTP_200_OK)
+            like.is_like = False
+            like.save()
+            return Response({"msg": "Unliked Post"}, status=status.HTTP_200_OK)
+
 
 class AddCommentView(viewsets.ViewSet):
     """

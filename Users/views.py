@@ -25,6 +25,7 @@ class RegisterView(viewsets.ViewSet):
     permission_classes = (AllowAny,)
 
     def create(self, request):
+        print(request.data)
         """
         Handles user registration.
 

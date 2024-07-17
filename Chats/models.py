@@ -41,7 +41,7 @@ class Message(BaseModel):
     conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name='messages')
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages')
     text = models.TextField()
-    
+    is_seen = models.BooleanField(default=False)
     def __str__(self) -> str:
         """
         Returns a string representation of the message.
@@ -51,3 +51,19 @@ class Message(BaseModel):
         """
         return self.text
 
+
+class Notification(BaseModel):
+    """
+    A model representing a notifictions of messages.
+    
+    Attributes:
+        
+    """
+    
+    message = models.ForeignKey(Message, on_delete=models.CASCADE, related_name= 'notifications')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notifications")
+    is_seen = models.BooleanField(default=False)
+    
+    def __str__(self) -> str:
+        return self.user.username
+    
