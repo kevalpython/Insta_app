@@ -25,7 +25,7 @@ class RegisterView(viewsets.ViewSet):
     permission_classes = (AllowAny,)
 
     def create(self, request):
-        print(request.data)
+       
         """
         Handles user registration.
 
@@ -89,7 +89,6 @@ class UserLoginView(APIView):
                 token = get_tokens_for_user(user)
                 user_serializer = UserSerializer(user)
                 return Response({'msg':'Login Successful.', 'token':token, "user":user_serializer.data }, status=status.HTTP_200_OK)
-            print("hii",user)
             return Response({'msg':'Invalid Credential.'}, status=status.HTTP_404_NOT_FOUND)
         return Response(serializer.errors, status=status.HTTP_404_NOT_FOUND)
     
@@ -150,7 +149,6 @@ class UserProfileView(viewsets.ViewSet):
         if serializer.is_valid():
             serializer.save()
             return Response({"msg": "User Updated"}, status=status.HTTP_200_OK)
-        print(serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def destroy(self, request, pk=None):
