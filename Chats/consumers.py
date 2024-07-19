@@ -78,7 +78,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             conversation = await self.get_conversation(self.conversation_name)
             messages = await self.get_messages(conversation)
             un_seen_mesasages = await self.get_unseen_messages(conversation,self.user)
-            print("un_seen_mesasages",un_seen_mesasages)
             message_serializer = MessageSerializer(messages, many=True)
 
             await self.send(text_data=json.dumps(message_serializer.data))
@@ -207,7 +206,6 @@ class NotificationConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_add(self.username, self.channel_name)
         await self.accept()
         count=await self.get_notifications(self.username)
-        print(count)
         await self.send(text_data=json.dumps({"count":count}))
         
     async def disconnect(self, close_code):
@@ -272,4 +270,9 @@ class ConversationConsumer(AsyncWebsocketConsumer):
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(self.group_name, self.channel_name)
 
-        
+    async def send_messge_notification_count(self, event):
+        data = json.loads(event.get('value'))
+        count = data['message_useen_count']
+        await self.send(text_data=json.dumps({
+            'count':count
+        }))
