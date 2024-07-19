@@ -3,8 +3,10 @@ Models for handling chat conversations and messages.
 """
 
 from django.db import models
+
 from core.models import BaseModel
 from Users.models import User
+
 
 class Conversation(BaseModel):
     """

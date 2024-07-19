@@ -18,7 +18,7 @@ class PostImageVideoAdmin(admin.ModelAdmin):
     This class displays user data in the admin panel.
     """
 
-    list_display = ["id", "post"]
+    list_display = ["id", "post","file_type"]
 
 
 @admin.register(Like)

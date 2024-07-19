@@ -29,6 +29,19 @@ class CommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
         fields = "__all__"
+    
+class ShowCommentSerializer(serializers.ModelSerializer):
+    """
+    Serializer for handling Comment model instances.
+    """
+    username = serializers.SerializerMethodField()
+    class Meta:
+        model = Comment
+        fields = ('post', 'content', 'username')
+    
+    def get_username(self, obj):
+        obj.user.username
+        return obj.user.username
 
 class IsLikeSerializer(serializers.ModelSerializer):
     """
@@ -43,16 +56,9 @@ class PostSerializer(serializers.ModelSerializer):
     """
     Serializer for handling Post model instances including related comments, images/videos, and likes.
 
-    Attributes:
-        comments (CommentSerializer): Serializer field for handling comments related to a post.
-        post_images_videos (PostImageVideoSerializer): Serializer field for handling images/videos related to a post.
-        user_name (SerializerMethodField): Method field to retrieve the username of the post owner.
-        total_likes (SerializerMethodField): Method field to calculate the total number of likes on a post.
-        has_like (SerializerMethodField): Method field to check if the authenticated user has liked the post.
-        all_likes (IsLikeSerializer): Serializer field for handling all likes related to a post.
     """
     
-    comments = CommentSerializer(many=True, read_only=True)
+    comments = ShowCommentSerializer(many=True, read_only=True)
     post_images_videos = PostImageVideoSerializer(source="postimagevideos", read_only=True, many=True)
     user_name = serializers.SerializerMethodField()
     total_likes = serializers.SerializerMethodField()
@@ -181,7 +187,25 @@ class UsernameSerializer(serializers.ModelSerializer):
     Attributes:
         Meta (class): Meta class specifying the model and fields to include.
     """
-    
+    profile_img = serializers.SerializerMethodField()
     class Meta:
         model = User
-        fields = ("username",)
+        fields = ("username","profile_img")
+
+    def get_profile_img(self, obj):
+        """
+        Method to get the profile image URL of the user sending the friendship request.
+
+        Args:
+            obj (Friendship): The Friendship instance.
+
+        Returns:
+            str or None: The profile image URL of the user sending the request if available, otherwise None.
+        """
+        request = self.context.get('request')
+        profile_image = obj.profile_img
+        print("======>>>>>>>",obj.profile_img)
+        if profile_image and request:
+            return urljoin(request.build_absolute_uri('/'), profile_image.url)
+        return None
+    

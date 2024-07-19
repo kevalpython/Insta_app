@@ -2,22 +2,20 @@
 Views for handling API endpoints related to posts, comments, likes, friendships, and user interactions.
 """
 
-from .models import *
 import json
-from .serializers import (
-    PostSerializer,
-    CommentSerializer,
-    FriendshipRequestSerializer,
-    PostImageVideoSerializer,
-    AddPostSerializer,
-    UsernameSerializer,
-)
-from rest_framework import status, viewsets
-from Users.serializers import UserSerializer
-from rest_framework.response import Response
+import os
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
+from rest_framework import status, viewsets
+from rest_framework.response import Response
+
 from .management.authentication import JWTAuthentication
+from .models import *
+from .serializers import (AddPostSerializer, CommentSerializer,
+                          FriendshipRequestSerializer,
+                          PostImageVideoSerializer, PostSerializer,
+                          UsernameSerializer)
+
 
 class AddPostView(viewsets.ViewSet):
     """
@@ -47,12 +45,22 @@ class AddPostView(viewsets.ViewSet):
             post = add_post_serializer.save()
             if files:
                 for file in files:
-                    image_data = {"user": user, "file": file, "post": post.id}
-                    image_serialzer = PostImageVideoSerializer(data=image_data)
-                    if image_serialzer.is_valid():
-                        image_serialzer.save()
+                    print(file)
+                    # Get file extension
+                    file_extension = os.path.splitext(file.name)[1].lower()
+                    # Determine the type based on the file extension
+                    if file_extension in ['.mp4', '.mov', '.avi']:
+                        file_type = 'video'
+                    else:
+                        file_type = 'image'
+                    
+                    image_data = {"user": user, "file": file, "post": post.id, "file_type": file_type}
+                    image_serializer = PostImageVideoSerializer(data=image_data)
+                    if image_serializer.is_valid():
+                        image_serializer.save()
             return Response({"msg": "Post Created"}, status=status.HTTP_201_CREATED)
         return Response(add_post_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class PostListView(viewsets.ViewSet):
     """
@@ -137,7 +145,7 @@ class PostView(viewsets.ViewSet):
         queryset = Post.objects.filter(user=user).order_by("-created_at")
         total_post = queryset.count()
         total_friends = Friendship.objects.filter(to_user=user,is_accepted =True).count()
-        user_serializer = UsernameSerializer(user)
+        user_serializer = UsernameSerializer(user, context=context)
         post_serializer = PostSerializer(queryset, context=context, many=True)
 
         return Response({'posts':post_serializer.data, 'total_posts':total_post,'total_friends': total_friends,'username':user_serializer.data}, status=status.HTTP_200_OK)
@@ -405,3 +413,7 @@ class RejectFriendRequestView(viewsets.ViewSet):
         return Response(
             {"msg": "Friendship Not Found"}, status=status.HTTP_404_NOT_FOUND
         )
+
+
+    
+    

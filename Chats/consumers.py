@@ -11,35 +11,33 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth.models import AnonymousUser
 from django.conf import settings
-from .models import Message, Conversation,Notification
+from .models import Message, Conversation, Notification
 from .serializers import MessageSerializer
 from Users.models import User
 
 
 def verify_jwt_token(token):
-        """
-        Verifies the JWT token to authenticate the user.
+    """
+    Verifies the JWT token to authenticate the user.
 
-        Args:
-            token (str): The JWT token.
+    Args:
+        token (str): The JWT token.
 
-        Returns:
-            User: The authenticated user, or None if the token is invalid or expired.
-        """
-        try:
-            decoded_payload = jwt.decode(
-                token, settings.SECRET_KEY, algorithms=["HS256"]
-            )
-            decode_access = jwt.decode(
-                decoded_payload["access"], settings.SECRET_KEY, algorithms=["HS256"]
-            )
-            user_id = decode_access["id"]
-            user = User.objects.get(id=user_id)
-            return user
-        except jwt.ExpiredSignatureError:
-            return None
-        except (jwt.InvalidTokenError, User.DoesNotExist):
-            return None
+    Returns:
+        User: The authenticated user, or None if the token is invalid or expired.
+    """
+    try:
+        decoded_payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+        decode_access = jwt.decode(
+            decoded_payload["access"], settings.SECRET_KEY, algorithms=["HS256"]
+        )
+        user_id = decode_access["id"]
+        user = User.objects.get(id=user_id)
+        return user
+    except jwt.ExpiredSignatureError:
+        return None
+    except (jwt.InvalidTokenError, User.DoesNotExist):
+        return None
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -77,13 +75,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
             conversation = await self.get_conversation(self.conversation_name)
             messages = await self.get_messages(conversation)
-            un_seen_mesasages = await self.get_unseen_messages(conversation,self.user)
+            un_seen_mesasages = await self.get_unseen_messages(conversation, self.user)
             message_serializer = MessageSerializer(messages, many=True)
 
             await self.send(text_data=json.dumps(message_serializer.data))
         else:
             await self.close()
-
 
     async def disconnect(self, close):
         """
@@ -141,7 +138,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         Returns:
             Message: The saved message object.
         """
-       
+
         sender = User.objects.get(pk=sender_id)
         new_message = Message.objects.create(
             sender=sender, text=message, conversation=conversation
@@ -149,7 +146,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         conversation = Conversation.objects.get(conversation_name=conversation)
         recipients = conversation.participants.exclude(pk=sender.pk)
         for user in recipients:
-            Notification.objects.create(message=new_message, user=user )
+            Notification.objects.create(message=new_message, user=user)
         return new_message
 
     @database_sync_to_async
@@ -166,7 +163,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         return Message.objects.filter(conversation=conversation).order_by("created_at")
 
     @database_sync_to_async
-    def get_unseen_messages(self, conversation,username):
+    def get_unseen_messages(self, conversation, username):
         """
         Retrieves the conversation object based on the room name.
 
@@ -176,15 +173,19 @@ class ChatConsumer(AsyncWebsocketConsumer):
         Returns:
             Conversation: The conversation object.
         """
-        unseen_message = Message.objects.filter(conversation=conversation,is_seen=False).exclude(sender=username)
+        unseen_message = Message.objects.filter(
+            conversation=conversation, is_seen=False
+        ).exclude(sender=username)
         for i in unseen_message:
-            i.is_seen=True
+            i.is_seen = True
             i.save()
-            notifiction_seen=Notification.objects.filter(message=i,user__username=username)
+            notifiction_seen = Notification.objects.filter(
+                message=i, user__username=username
+            )
             for notification in notifiction_seen:
-                notification.is_seen=True
+                notification.is_seen = True
                 notification.save()
-                
+
         return "seen"
 
     async def chat_message(self, event):
@@ -200,14 +201,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
             print(f"Error in chat_message method: {str(e)}")
             raise e
 
+
 class NotificationConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.username = self.scope["url_route"]["kwargs"]["username"]
         await self.channel_layer.group_add(self.username, self.channel_name)
         await self.accept()
-        count=await self.get_notifications(self.username)
-        await self.send(text_data=json.dumps({"count":count}))
-        
+        count = await self.get_notifications(self.username)
+        await self.send(text_data=json.dumps({"count": count}))
+
     async def disconnect(self, close_code):
         """
         Handles the disconnection event when a client disconnects from the WebSocket.
@@ -216,16 +218,12 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             close_code (int): The close code for the disconnection.
         """
         await self.channel_layer.group_discard(self.username, self.channel_name)
-        
-    
+
     async def send_notification(self, event):
-        data = json.loads(event.get('value'))
-        count = data['count']
-        await self.send(text_data=json.dumps({
-            'count':count
-        }))
-        
-    
+        data = json.loads(event.get("value"))
+        count = data["count"]
+        await self.send(text_data=json.dumps({"count": count}))
+
     @database_sync_to_async
     def get_notifications(self, username):
         """
@@ -237,7 +235,10 @@ class NotificationConsumer(AsyncWebsocketConsumer):
         Returns:
             QuerySet: The list of message objects.
         """
-        return Notification.objects.filter(user__username=username,is_seen=False).count()
+        return Notification.objects.filter(
+            user__username=username, is_seen=False
+        ).count()
+
 
 class ConversationConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -253,17 +254,21 @@ class ConversationConsumer(AsyncWebsocketConsumer):
             await self.close()
         self.conversation_name = self.scope["url_route"]["kwargs"]["conversation_name"]
         self.group_name = f"messages_{self.conversation_name}"
-        
+
         await self.channel_layer.group_add(self.group_name, self.channel_name)
         await self.accept()
 
         try:
-            conversation = Conversation.objects.get(conversation_name=self.conversation_name)
+            conversation = Conversation.objects.get(
+                conversation_name=self.conversation_name
+            )
         except Conversation.DoesNotExist:
             await self.close()
             return
 
-        messages = Message.objects.filter(conversation=conversation,is_seen=False).exclude(sender=self.user)
+        messages = Message.objects.filter(
+            conversation=conversation, is_seen=False
+        ).exclude(sender=self.user)
 
         await self.send(text_data=json.dumps({"count": messages.count()}))
 
@@ -271,8 +276,6 @@ class ConversationConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_discard(self.group_name, self.channel_name)
 
     async def send_messge_notification_count(self, event):
-        data = json.loads(event.get('value'))
-        count = data['message_useen_count']
-        await self.send(text_data=json.dumps({
-            'count':count
-        }))
+        data = json.loads(event.get("value"))
+        count = data["message_useen_count"]
+        await self.send(text_data=json.dumps({"count": count}))

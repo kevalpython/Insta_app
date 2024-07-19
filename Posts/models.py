@@ -31,7 +31,7 @@ class PostImageVideo(BaseModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     post = models.ForeignKey(Post, on_delete=models.CASCADE,related_name="postimagevideos")
     file = models.FileField(upload_to=upload_post_file, blank=True, null=True)
-
+    file_type = models.TextField(blank=True,null=True)
 
 class Like(BaseModel):
     """
@@ -68,5 +68,3 @@ class Friendship(BaseModel):
 
     def __str__(self):
         return f"{self.from_user} follows {self.to_user}"
-
-

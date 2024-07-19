@@ -1,13 +1,17 @@
 """
 Viewset for handling conversation-related operations.
 """
-from .models import Conversation,Notification,Message
-from .serializers import ConversationSerializer, SendConversationSerializer
+
+from django.db.models import Q
 from rest_framework import status, viewsets
 from rest_framework.response import Response
-from Users.models import User
-from django.db.models import Q
+
 from Posts.management.authentication import JWTAuthentication
+from Users.models import User
+
+from .models import Conversation
+from .serializers import ConversationSerializer, SendConversationSerializer
+
 
 class ConversationView(viewsets.ViewSet):
     """
@@ -38,8 +42,10 @@ class ConversationView(viewsets.ViewSet):
 
         # Retrieve conversations for the user
         conversations = Conversation.objects.filter(participants__id=user)
-        
-        conversation_serializer = SendConversationSerializer(conversations, context=context, many=True)
+
+        conversation_serializer = SendConversationSerializer(
+            conversations, context=context, many=True
+        )
         return Response(conversation_serializer.data)
 
     def retrieve(self, request, pk=None):
@@ -58,11 +64,9 @@ class ConversationView(viewsets.ViewSet):
             receiver_id = pk
             sender_id = request.user.id
 
-            # Fetch usernames
             sender_username = User.objects.get(pk=sender_id).username
             receiver_username = User.objects.get(pk=receiver_id).username
 
-            # Construct conversation names
             sender_conv_name = f"{sender_username}_{receiver_username}"
             receiver_conv_name = f"{receiver_username}_{sender_username}"
 
@@ -72,24 +76,32 @@ class ConversationView(viewsets.ViewSet):
             ).first()
 
             if not conversation:
-                conversation = Conversation.objects.create(conversation_name=receiver_conv_name)
+                conversation = Conversation.objects.create(
+                    conversation_name=receiver_conv_name
+                )
                 conversation.participants.add(sender_id, receiver_id)
                 msg = "conversation created"
                 status_code = status.HTTP_201_CREATED
             else:
                 msg = "conversation already exists"
                 status_code = status.HTTP_200_OK
-
             conversation_serializer = ConversationSerializer(conversation)
-            
-            return Response({
-                "msg": msg,
-                "conversation_name": conversation_serializer.data,
-            }, status=status_code)
+
+            return Response(
+                {
+                    "msg": msg,
+                    "conversation_name": conversation_serializer.data,
+                },
+                status=status_code,
+            )
 
         except User.DoesNotExist:
-            return Response({"msg": "User does not exist"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"msg": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
+            )
 
         except Exception as e:
-            return Response({"msg": "Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
+            return Response(
+                {"msg": "Internal Server Error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

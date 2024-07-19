@@ -35,6 +35,23 @@ class RegisterView(viewsets.ViewSet):
         Returns:
             Response: JSON response indicating success or failure of registration.
         """
+        first_name = request.data['first_name']
+        last_name = request.data['last_name']
+        email = request.data['email']
+        username = request.data['username']
+        password = request.data['password']
+        password2 = request.data['password2']
+        profile_img = request.data['profile_img']
+        
+        data = {"first_name":first_name,
+        "last_name":last_name,
+        "email":email,
+        "username":username,
+        "password":password,
+        "password2":password2,
+        "profile_img":profile_img
+            }
+        print("request",data)
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
