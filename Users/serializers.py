@@ -5,9 +5,10 @@ This module contains serializers for converting Django models into JSON format.
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
-from Posts.models import Friendship  # Assuming Friendship model exists in 'Posts' app
+from Posts.models import Friendship
 from .models import User
 from django.db.models import Q
+
 
 class RegisterSerializer(serializers.ModelSerializer):
     """
@@ -79,7 +80,8 @@ class RegisterSerializer(serializers.ModelSerializer):
         user.save()
 
         return user
-    
+
+
 class UserSerializer(serializers.ModelSerializer):
     """
     Serializer for the User model.
@@ -92,7 +94,7 @@ class UserSerializer(serializers.ModelSerializer):
 
         model = User
         fields = "__all__"
-        
+
     def validate(self, attrs):
         """
         Validate method to validate user attributes.
@@ -115,7 +117,7 @@ class UserLoginSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['username', 'password']
+        fields = ["username", "password"]
 
 
 class UserSearchSerializer(serializers.ModelSerializer):
@@ -127,8 +129,15 @@ class UserSearchSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'profile_img', 'first_name', 'last_name', 'friend_request']
-        
+        fields = [
+            "id",
+            "username",
+            "profile_img",
+            "first_name",
+            "last_name",
+            "friend_request",
+        ]
+
     def get_friend_request(self, obj):
         """
         Method to get the friend request status for a user.
@@ -139,11 +148,55 @@ class UserSearchSerializer(serializers.ModelSerializer):
         Returns:
             str: Status of friend request ('accepted', 'requested', 'not').
         """
-        request = self.context.get('request')
-        if request and hasattr(request, 'user'):
-            friendship = Friendship.objects.filter(Q(from_user=request.user, to_user=obj.id) | Q(from_user=obj.id, to_user=request.user)).first()
+        request = self.context.get("request")
+        if request and hasattr(request, "user"):
+            friendship = Friendship.objects.filter(
+                Q(from_user=request.user, to_user=obj)
+                | Q(from_user=obj, to_user=request.user)
+            ).first()
+            print(friendship)
             if friendship:
-                if friendship.is_accepted:
+                if (
+                    friendship.is_accepted
+                    and friendship.is_follow_back_requested
+                    and friendship.to_user == request.user
+                    and friendship.is_follow_back_accepted
+                ):
+                    print(78945612345)
                     return "accepted"
-                return "requested"
-        return "not"
+                elif (
+                    friendship.is_accepted
+                    and friendship.is_follow_back_requested
+                    and friendship.to_user == request.user
+                    and friendship.is_follow_back_accepted == False
+                ):
+                    return "follow_back_requested"
+                elif (
+                    friendship.is_accepted
+                    and friendship.is_follow_back_requested
+                    and friendship.from_user == request.user
+                    and friendship.is_follow_back_accepted == False
+                ):
+                    return "follow_back_accept"
+                elif (
+                    friendship.is_accepted
+                    and friendship.is_follow_back_requested == False
+                    and friendship.to_user == request.user
+                ):
+                    return "follow_back_request"
+                elif (
+                    friendship.is_accepted == False
+                    and friendship.from_user == request.user
+                ):
+                    return "requested"
+                elif (
+                    friendship.is_accepted and friendship.from_user == request.user
+                    ):
+                    print(12345)
+                    return "accepted"
+                elif (
+                    friendship.is_accepted == False
+                    and friendship.to_user == request.user
+                ):
+                    return "accept"
+            return "not"

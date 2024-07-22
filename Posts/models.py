@@ -65,6 +65,8 @@ class Friendship(BaseModel):
         User, related_name="friendships_received", on_delete=models.CASCADE
     )
     is_accepted = models.BooleanField(default=False)
+    is_follow_back_requested = models.BooleanField(default = False)
+    is_follow_back_accepted = models.BooleanField(default = False)
 
     def __str__(self):
         return f"{self.from_user} follows {self.to_user}"

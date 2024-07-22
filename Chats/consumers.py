@@ -205,7 +205,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 class NotificationConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.username = self.scope["url_route"]["kwargs"]["username"]
-        await self.channel_layer.group_add(self.username, self.channel_name)
+        await self.channel_layer.group_add(self.username, self.channel_name)        
         await self.accept()
         count = await self.get_notifications(self.username)
         await self.send(text_data=json.dumps({"count": count}))

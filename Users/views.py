@@ -227,6 +227,15 @@ class SearchUserView(viewsets.ModelViewSet):
     filter_backends = [filters.SearchFilter]
     search_fields = ['username', 'first_name', 'last_name']
     
+    def get_queryset(self):
+        """
+        Return the queryset, filtering out the logged-in user.
+        """
+        queryset = User.objects.all()
+        if self.request.user.is_authenticated:
+            queryset = queryset.exclude(pk=self.request.user.pk)
+        return queryset
+    
     def get_serializer_context(self):
         """
         Provides the context for the serializer.

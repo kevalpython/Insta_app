@@ -45,4 +45,4 @@ class FriendshipAdmin(admin.ModelAdmin):
     This class displays user data in the admin panel.
     """
 
-    list_display = ["id", "from_user", "to_user", "is_accepted"]
+    list_display = ["id", "from_user", "to_user", "is_accepted","is_follow_back_requested","is_follow_back_accepted"]
