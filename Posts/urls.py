@@ -16,7 +16,7 @@ router.register("rejectfriendrequest", views.RejectFriendRequestView, basename="
 router.register("sendfollowbackrequest", views.FollowBackFriendRequestsendView, basename="sendfollowbackrequest")
 router.register("acceptfollowbackrequest", views.FollowBackRequestAcceptedView, basename="acceptfollowbackrequest")
 router.register("acceptfollowrequest", views.FollowRequestAccepted, basename="acceptfollowrequest")
-
+router.register("friendslist", views.FriendsListView, basename="friendslist")
 
 urlpatterns = [
     path("", include(router.urls)),

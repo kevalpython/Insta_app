@@ -18,6 +18,7 @@ from .serializers import (
     PostImageVideoSerializer,
     PostSerializer,
     UsernameSerializer,
+    FriendsListSerializer,
 )
 
 
@@ -93,7 +94,8 @@ class PostListView(viewsets.ViewSet):
         user = request.user
 
         friends_ids = Friendship.objects.filter(
-            Q(from_user=user, is_accepted=True) | Q(to_user=user, is_follow_back_accepted=True)
+            Q(from_user=user, is_accepted=True)
+            | Q(to_user=user, is_follow_back_accepted=True)
         ).values_list("from_user", "to_user")
 
         friends_ids = set(
@@ -166,11 +168,21 @@ class UserPostView(viewsets.ViewSet):
         queryset = Post.objects.filter(user=user).order_by("-created_at")
         total_post = queryset.count()
         total_friends = Friendship.objects.filter(
-            Q(from_user=user, is_accepted=True) | Q(to_user=user, is_follow_back_accepted=True)
+            Q(from_user=user, is_accepted=True)
+            | Q(to_user=user, is_follow_back_accepted=True)
         ).count()
         user_serializer = UsernameSerializer(user, context=context)
         post_serializer = PostSerializer(queryset, context=context, many=True)
-
+        print(
+            "posts",
+            post_serializer.data,
+            "total_posts",
+            total_post,
+            "total_friends",
+            total_friends,
+            "username",
+            user_serializer.data,
+        )
         return Response(
             {
                 "posts": post_serializer.data,
@@ -351,15 +363,32 @@ class UnfollowFriendRequestView(viewsets.ViewSet):
         Returns:
             Response: JSON response indicating success or failure of unfollow/rejection.
         """
+
         friendrequest = Friendship.objects.filter(
             Q(from_user=request.user, to_user=pk, is_accepted=True)
-            | Q(from_user=pk, to_user=request.user, is_accepted=True)
+            | Q(to_user=request.user, from_user=pk, is_follow_back_accepted=True)
         ).first()
+        print(friendrequest)
         if friendrequest:
-            friendrequest.delete()
-            return Response(
-                {"msg": "Friend request rejected"}, status=status.HTTP_201_CREATED
-            )
+            if (
+                friendrequest.is_accepted == True
+                and friendrequest.from_user == request.user
+            ):
+                friendrequest.delete()
+                return Response(
+                    {"msg": "Friend request rejected"}, status=status.HTTP_201_CREATED
+                )
+            elif (
+                friendrequest.to_user == request.user
+                and friendrequest.is_follow_back_accepted
+            ):
+                print("hii")
+                friendrequest.is_follow_back_accepted = False
+                friendrequest.is_follow_back_requested = False
+                friendrequest.save()
+                return Response(
+                    {"msg": "Friend request rejected"}, status=status.HTTP_201_CREATED
+                )
         return Response(
             {"msg": "Friendship Not Found"}, status=status.HTTP_404_NOT_FOUND
         )
@@ -422,7 +451,7 @@ class FollowBackFriendRequestsendView(viewsets.ViewSet):
         """
         try:
             to_user = get_object_or_404(User, pk=pk)
-            print(to_user)
+            print(request)
             follow_back_request = Friendship.objects.filter(
                 is_follow_back_requested=False,
                 to_user=request.user,
@@ -471,7 +500,6 @@ class FollowBackRequestAcceptedView(viewsets.ViewSet):
                 from_user=request.user,
                 is_accepted=True,
             ).first()
-            print(follow_back_request)
             if (
                 follow_back_request.is_follow_back_requested
                 and follow_back_request.is_follow_back_accepted == False
@@ -479,7 +507,8 @@ class FollowBackRequestAcceptedView(viewsets.ViewSet):
                 follow_back_request.is_follow_back_accepted = True
                 follow_back_request.save()
             return Response(
-                {"follow_back_request": follow_back_request.is_follow_back_requested}
+                {"follow_back_request": follow_back_request.is_follow_back_requested},
+                status=status.HTTP_202_ACCEPTED,
             )
         except User.DoesNotExist:
             return Response(
@@ -520,7 +549,10 @@ class FollowRequestAccepted(viewsets.ViewSet):
             if not friendrequest.is_accepted:
                 friendrequest.is_accepted = True
                 friendrequest.save()
-            return Response({"follow_back_request": friendrequest.is_accepted})
+            return Response(
+                {"follow_back_request": friendrequest.is_accepted},
+                status=status.HTTP_202_ACCEPTED,
+            )
         except User.DoesNotExist:
             return Response(
                 {"msg": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
@@ -560,7 +592,7 @@ class FriendRequestAcceptView(viewsets.ViewSet):
         friend_request_serializer = FriendshipRequestSerializer(
             friend_request, context=context, many=True
         )
-        return Response(friend_request_serializer.data)
+        return Response(friend_request_serializer.data,status = status.HTTP_200_OK)
 
     def retrieve(self, request, pk=None):
         """
@@ -588,6 +620,30 @@ class FriendRequestAcceptView(viewsets.ViewSet):
                 return Response(
                     {"msg": "Request accepted"}, status=status.HTTP_201_CREATED
                 )
+        except User.DoesNotExist:
+            return Response(
+                {"msg": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+
+class FriendsListView(viewsets.ViewSet):
+
+    authentication_classes = [JWTAuthentication]
+
+    def list(self, request):
+        try:
+            context = {'request':request}
+            friendrequest = Friendship.objects.filter(
+                Q(from_user=request.user)
+                | Q(to_user=request.user)
+            )
+            print(friendrequest)
+            friend_request_serializer = FriendsListSerializer(
+                friendrequest, context=context, many=True
+            )
+            return Response(friend_request_serializer.data,status = status.HTTP_200_OK)
+            
+
         except User.DoesNotExist:
             return Response(
                 {"msg": "User does not exist"}, status=status.HTTP_404_NOT_FOUND

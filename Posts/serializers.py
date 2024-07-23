@@ -6,6 +6,7 @@ from rest_framework import serializers
 from Users.models import User
 from .models import Post, PostImageVideo, Like, Comment, Friendship
 from urllib.parse import urljoin
+from django.db.models import Q
 
 class PostImageVideoSerializer(serializers.ModelSerializer):
     """
@@ -134,11 +135,11 @@ class FriendshipRequestSerializer(serializers.ModelSerializer):
     
     from_user = serializers.SerializerMethodField()
     to_user = serializers.SerializerMethodField()
-    from_user_img = serializers.SerializerMethodField()
-
+    user_img = serializers.SerializerMethodField()
+    user_id = serializers.SerializerMethodField()
     class Meta:
         model = Friendship
-        fields = ("id", "from_user", "to_user", "is_accepted", "from_user_img")
+        fields = ("id", "from_user", "to_user", "user_img", "user_id")
         
     def get_from_user(self, obj):
         """
@@ -164,7 +165,7 @@ class FriendshipRequestSerializer(serializers.ModelSerializer):
         """
         return obj.to_user.username
     
-    def get_from_user_img(self, obj):
+    def get_user_img(self, obj):
         """
         Method to get the profile image URL of the user sending the friendship request.
 
@@ -175,10 +176,30 @@ class FriendshipRequestSerializer(serializers.ModelSerializer):
             str or None: The profile image URL of the user sending the request if available, otherwise None.
         """
         request = self.context.get('request')
-        profile_image = obj.from_user.profile_img
+        if obj.from_user == request.user:
+            profile_image = obj.to_user.profile_img
+        else:
+            profile_image = obj.from_user.profile_img
         if profile_image and request:
             return urljoin(request.build_absolute_uri('/'), profile_image.url)
         return None
+
+    def get_user_id(self, obj):
+        """
+        Method to get the profile image URL of the user sending the friendship request.
+
+        Args:
+            obj (Friendship): The Friendship instance.
+
+        Returns:
+            str or None: The profile image URL of the user sending the request if available, otherwise None.
+        """
+        request = self.context.get('request')
+        if obj.from_user == request.user:
+            return obj.to_user.id
+        else:
+            return obj.from_user.id
+
 
 class UsernameSerializer(serializers.ModelSerializer):
     """
@@ -204,8 +225,109 @@ class UsernameSerializer(serializers.ModelSerializer):
         """
         request = self.context.get('request')
         profile_image = obj.profile_img
-        print("======>>>>>>>",obj.profile_img)
         if profile_image and request:
             return urljoin(request.build_absolute_uri('/'), profile_image.url)
         return None
     
+class FriendsListSerializer(serializers.ModelSerializer):
+    """
+    Serializer for handling Friendship model instances, specifically for friendship requests.
+
+    Attributes:
+        from_user (SerializerMethodField): Method field to retrieve the username of the user sending the request.
+        to_user (SerializerMethodField): Method field to retrieve the username of the user receiving the request.
+        from_user_img (SerializerMethodField): Method field to retrieve the profile image URL of the user sending the request.
+    """
+    
+    from_user = serializers.SerializerMethodField()
+    to_user = serializers.SerializerMethodField()
+    user_img = serializers.SerializerMethodField()
+    user_id = serializers.SerializerMethodField()
+    friend_request = serializers.SerializerMethodField()
+    class Meta:
+        model = Friendship
+        fields = ("id", "from_user", "to_user", "user_img", "user_id", "friend_request",)
+        
+    def get_from_user(self, obj):
+        """
+        Method to get the username of the user sending the friendship request.
+
+        Args:
+            obj (Friendship): The Friendship instance.
+
+        Returns:
+            str: The username of the user sending the request.
+        """
+        return obj.from_user.username
+    
+    def get_to_user(self, obj):
+        """
+        Method to get the username of the user receiving the friendship request.
+
+        Args:
+            obj (Friendship): The Friendship instance.
+
+        Returns:
+            str: The username of the user receiving the request.
+        """
+        return obj.to_user.username
+    
+    def get_user_img(self, obj):
+        """
+        Method to get the profile image URL of the user sending the friendship request.
+
+        Args:
+            obj (Friendship): The Friendship instance.
+
+        Returns:
+            str or None: The profile image URL of the user sending the request if available, otherwise None.
+        """
+        request = self.context.get('request')
+        if obj.from_user == request.user:
+            profile_image = obj.to_user.profile_img
+        else:
+            profile_image = obj.from_user.profile_img
+        if profile_image and request:
+            return urljoin(request.build_absolute_uri('/'), profile_image.url)
+        return None
+
+    def get_user_id(self, obj):
+        """
+        Method to get the profile image URL of the user sending the friendship request.
+
+        Args:
+            obj (Friendship): The Friendship instance.
+
+        Returns:
+            str or None: The profile image URL of the user sending the request if available, otherwise None.
+        """
+        request = self.context.get('request')
+        if obj.from_user == request.user:
+            return obj.to_user.id
+        else:
+            return obj.from_user.id
+
+
+    def get_friend_request(self, obj):
+        """
+        Method to get the friend request status for a user.
+
+        Args:
+            obj (User): User instance for which friend request status is being checked.
+
+        Returns:
+            str: Status of friend request ('accepted', 'requested', 'not').
+        """
+        print(obj.from_user)
+        request = self.context.get('request')
+        user=request.user
+        if obj.to_user == user and obj.is_follow_back_requested == True and obj.is_follow_back_accepted == True:
+            return "accepted"
+        elif obj.to_user == user and obj.is_follow_back_requested == True and obj.is_follow_back_accepted == False:
+            return "follow_back_requested"
+        elif obj.to_user == user and obj.is_follow_back_requested == False:
+            return "follow_back_request"        
+        else:
+            return "accepted"
+
+        

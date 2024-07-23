@@ -15,6 +15,7 @@ import jwt
 from django.conf import settings
 from Posts.management.authentication import JWTAuthentication
 from rest_framework import filters
+from django.contrib.auth.hashers import check_password
 
 
 class RegisterView(viewsets.ViewSet):
@@ -146,7 +147,8 @@ class UserProfileView(viewsets.ViewSet):
         context = {'request': request}
         user = get_object_or_404(self.queryset, pk=pk)
         serializer = self.serializer_class(user, context=context)
-        return Response(serializer.data)
+        print(serializer.data)
+        return Response(serializer.data,status= status.HTTP_200_OK)
 
     def partial_update(self, request, pk=None):
         """
@@ -180,11 +182,22 @@ class UserProfileView(viewsets.ViewSet):
             Response: JSON response indicating success or failure of the delete operation.
         """
         user = get_object_or_404(self.queryset, pk=pk)
+        password = request.data.get('password')
+        
+        if not password:
+            return Response({"msg": "Password is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if not check_password(password, user.password):
+            print("kjbfgdhgbdfdbhj")
+            return Response({"msg": "Password incorrect"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        
         if user.profile_img:
             import os
             import shutil
             if os.path.isfile(user.profile_img.path):
                 shutil.rmtree(f'media/images/{user.username}')
+
         user.delete()
         return Response({"msg": "User Deleted"}, status=status.HTTP_200_OK)
 
