@@ -2,21 +2,23 @@
 This module contains views for user management and authentication.
 """
 
-from django.shortcuts import get_object_or_404
-from rest_framework import status, viewsets
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework import viewsets, status, filters
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from django.contrib.auth import authenticate
 from rest_framework.views import APIView
-from .models import User
-from .serializers import RegisterSerializer, UserSerializer, UserLoginSerializer, UserSearchSerializer
-import jwt
-from django.conf import settings
-from Posts.management.authentication import JWTAuthentication
-from rest_framework import filters
+from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import check_password
+from django.shortcuts import get_object_or_404
+from rest_framework_simplejwt.tokens import RefreshToken
+from django.conf import settings
+import jwt
+import os
+import shutil
 
+from .serializers import RegisterSerializer, UserLoginSerializer, UserSerializer, UserSearchSerializer
+from .models import User
+
+from Posts.management.authentication import JWTAuthentication
 
 class RegisterView(viewsets.ViewSet):
     """
@@ -30,29 +32,9 @@ class RegisterView(viewsets.ViewSet):
         """
         Handles user registration.
 
-        Args:
-            request (Request): HTTP request containing user registration data.
-
         Returns:
             Response: JSON response indicating success or failure of registration.
         """
-        first_name = request.data['first_name']
-        last_name = request.data['last_name']
-        email = request.data['email']
-        username = request.data['username']
-        password = request.data['password']
-        password2 = request.data['password2']
-        profile_img = request.data['profile_img']
-        
-        data = {"first_name":first_name,
-        "last_name":last_name,
-        "email":email,
-        "username":username,
-        "password":password,
-        "password2":password2,
-        "profile_img":profile_img
-            }
-        print("request",data)
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -64,16 +46,12 @@ def get_tokens_for_user(user):
     """
     Generates access and refresh tokens for a given user.
 
-    Args:
-        user (User): User instance for which tokens are generated.
-
     Returns:
         dict: Dictionary containing encoded access and refresh tokens.
     """
     refresh = RefreshToken.for_user(user)
     access = refresh.access_token
-
-    # Convert the tokens to strings before encoding
+    
     refresh_encoded = jwt.encode({"refresh": str(refresh)}, settings.SECRET_KEY, algorithm="HS256")
     access_encoded = jwt.encode({"access": str(access)}, settings.SECRET_KEY, algorithm="HS256")
 
@@ -92,9 +70,6 @@ class UserLoginView(APIView):
         """
         Handles user login.
 
-        Args:
-            request (Request): HTTP request containing user login credentials.
-
         Returns:
             Response: JSON response containing login status, tokens, and user data.
         """
@@ -111,21 +86,26 @@ class UserLoginView(APIView):
         return Response(serializer.errors, status=status.HTTP_404_NOT_FOUND)
     
 
-class UserProfileView(viewsets.ViewSet):
+class UserProfileView(viewsets.ModelViewSet):
     """
-    ViewSet for managing user profiles.
+    ViewSet for managing user profiles and searching users.
     """
 
     queryset = User.objects.all()
     authentication_classes = [JWTAuthentication]
     serializer_class = UserSerializer
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['username', 'first_name', 'last_name']
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        if self.action == 'search' and self.request.user.is_authenticated:
+            queryset = queryset.exclude(pk=self.request.user.pk)
+        return queryset
 
     def list(self, request):
         """
         Lists all user profiles.
-
-        Args:
-            request (Request): HTTP request.
 
         Returns:
             Response: JSON response containing serialized user profiles.
@@ -144,27 +124,21 @@ class UserProfileView(viewsets.ViewSet):
         Returns:
             Response: JSON response containing serialized user profile.
         """
-        context = {'request': request}
         user = get_object_or_404(self.queryset, pk=pk)
-        serializer = self.serializer_class(user, context=context)
-        print(serializer.data)
-        return Response(serializer.data,status= status.HTTP_200_OK)
+        serializer = self.serializer_class(user, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def partial_update(self, request, pk=None):
         """
         Partially updates a user profile.
-
-        Args:
-            request (Request): HTTP request containing updated user data.
-            pk (int): Primary key of the user profile to update.
 
         Returns:
             Response: JSON response indicating success or failure of the update operation.
         """
         user = get_object_or_404(self.queryset, pk=pk)
         if user != request.user:
-            return Response({"msg": "User permission denied"}, status=status.HTTP_203_NON_AUTHORITATIVE_INFORMATION)
-        serializer = UserSerializer(user, data=request.data, context=request.user, partial=True)
+            return Response({"msg": "User permission denied"}, status=status.HTTP_403_FORBIDDEN)
+        serializer = self.serializer_class(user, data=request.data, context={'request': request}, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response({"msg": "User Updated"}, status=status.HTTP_200_OK)
@@ -173,10 +147,6 @@ class UserProfileView(viewsets.ViewSet):
     def destroy(self, request, pk=None):
         """
         Deletes a user profile.
-
-        Args:
-            request (Request): HTTP request.
-            pk (int): Primary key of the user profile to delete.
 
         Returns:
             Response: JSON response indicating success or failure of the delete operation.
@@ -188,18 +158,24 @@ class UserProfileView(viewsets.ViewSet):
             return Response({"msg": "Password is required"}, status=status.HTTP_400_BAD_REQUEST)
         
         if not check_password(password, user.password):
-            print("kjbfgdhgbdfdbhj")
             return Response({"msg": "Password incorrect"}, status=status.HTTP_400_BAD_REQUEST)
         
-        
-        if user.profile_img:
-            import os
-            import shutil
-            if os.path.isfile(user.profile_img.path):
-                shutil.rmtree(f'media/images/{user.username}')
+        if user.profile_img and os.path.isfile(user.profile_img.path):
+            shutil.rmtree(f'media/images/{user.username}')
 
         user.delete()
         return Response({"msg": "User Deleted"}, status=status.HTTP_200_OK)
+
+    def search(self, request):
+        """
+        Searches for users based on username, first name, or last name.
+
+        Returns:
+            Response: JSON response containing the search results.
+        """
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = UserSearchSerializer(queryset, many=True, context={'request': request})
+        return Response(serializer.data)
 
 
 class LogoutView(APIView):
@@ -212,9 +188,6 @@ class LogoutView(APIView):
     def post(self, request):
         """
         Handles user logout by invalidating tokens.
-
-        Args:
-            request (Request): HTTP request containing refresh token to invalidate.
 
         Returns:
             Response: JSON response indicating success or failure of the logout operation.
@@ -241,9 +214,6 @@ class SearchUserView(viewsets.ModelViewSet):
     search_fields = ['username', 'first_name', 'last_name']
     
     def get_queryset(self):
-        """
-        Return the queryset, filtering out the logged-in user.
-        """
         queryset = User.objects.all()
         if self.request.user.is_authenticated:
             queryset = queryset.exclude(pk=self.request.user.pk)

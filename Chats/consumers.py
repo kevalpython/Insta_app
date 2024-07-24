@@ -34,9 +34,7 @@ def verify_jwt_token(token):
         user_id = decode_access["id"]
         user = User.objects.get(id=user_id)
         return user
-    except jwt.ExpiredSignatureError:
-        return None
-    except (jwt.InvalidTokenError, User.DoesNotExist):
+    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, User.DoesNotExist):
         return None
 
 
@@ -85,40 +83,32 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def disconnect(self, close):
         """
         Handles the disconnection event when a client disconnects from the WebSocket.
-
         """
         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
     async def receive(self, text_data):
         """
         Handles receiving messages from the WebSocket.
-
-        Args:
-            text_data (str): The received message data in JSON format.
         """
-        sender_id = self.user.id
-        text_data = json.loads(text_data)
         try:
+            sender_id = self.user.id
+            message_data = json.loads(text_data)
             conversation = await self.get_conversation(self.conversation_name)
-            new_message = await self.save_message(sender_id, text_data, conversation)
+            if conversation:
+                new_message = await self.save_message(sender_id, message_data, conversation)
+                message_serializer = MessageSerializer(new_message)
 
-            message_serializer = MessageSerializer(new_message)
-
-            await self.channel_layer.group_send(
-                self.room_group_name,
-                {"type": "chat.message", "message": message_serializer.data},
-            )
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {"type": "chat.message", "message": message_serializer.data},
+                )
         except Exception as e:
             print(f"Error in receive method: {str(e)}")
-            raise e
 
     @database_sync_to_async
     def get_conversation(self, room_name):
         """
         Retrieves the conversation object based on the room name.
-
-        Args:
-            room_name (str): The name of the conversation room.
 
         Returns:
             Conversation: The conversation object.
@@ -129,11 +119,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
     def save_message(self, sender_id, message, conversation):
         """
         Saves a new message to the database.
-
-        Args:
-            sender_id (int): The ID of the user sending the message.
-            message (dict): The message data.
-            conversation (Conversation): The conversation object.
 
         Returns:
             Message: The saved message object.
@@ -191,9 +176,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def chat_message(self, event):
         """
         Sends a chat message to the WebSocket.
-
-        Args:
-            event (dict): The event data containing the message.
         """
         try:
             await self.send(text_data=json.dumps(event["message"]))
@@ -213,9 +195,6 @@ class NotificationConsumer(AsyncWebsocketConsumer):
     async def disconnect(self, close_code):
         """
         Handles the disconnection event when a client disconnects from the WebSocket.
-
-        Args:
-            close_code (int): The close code for the disconnection.
         """
         await self.channel_layer.group_discard(self.username, self.channel_name)
 
@@ -228,9 +207,6 @@ class NotificationConsumer(AsyncWebsocketConsumer):
     def get_notifications(self, username):
         """
         Retrieves all messages for a given conversation, ordered by creation time.
-
-        Args:
-            conversation (Conversation): The conversation object.
 
         Returns:
             QuerySet: The list of message objects.

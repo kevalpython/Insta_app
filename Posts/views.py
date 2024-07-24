@@ -8,7 +8,7 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets
 from rest_framework.response import Response
-
+from rest_framework.decorators import action
 from .management.authentication import JWTAuthentication
 from .models import *
 from .serializers import (
@@ -22,12 +22,9 @@ from .serializers import (
 )
 
 
-class AddPostView(viewsets.ViewSet):
+class UserPostView(viewsets.ViewSet):
     """
-    ViewSet for creating a new post with optional images/videos.
-
-    Attributes:
-        authentication_classes (list): List of authentication classes for verifying user authentication.
+    ViewSet for retrieving posts of a specific user or listing all posts of the authenticated user.
     """
 
     authentication_classes = [JWTAuthentication]
@@ -35,9 +32,6 @@ class AddPostView(viewsets.ViewSet):
     def create(self, request):
         """
         Handles POST request to create a new post with optional images/videos.
-
-        Args:
-            request (Request): HTTP request object containing user data and post content.
 
         Returns:
             Response: JSON response indicating success or failure of post creation.
@@ -50,7 +44,6 @@ class AddPostView(viewsets.ViewSet):
             post = add_post_serializer.save()
             if files:
                 for file in files:
-                    print(file)
                     file_extension = os.path.splitext(file.name)[1].lower()
                     if file_extension in [".mp4", ".mov", ".avi"]:
                         file_type = "video"
@@ -69,23 +62,9 @@ class AddPostView(viewsets.ViewSet):
             return Response({"msg": "Post Created"}, status=status.HTTP_201_CREATED)
         return Response(add_post_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
-class PostListView(viewsets.ViewSet):
-    """
-    ViewSet for listing posts of the authenticated user and their friends.
-
-    Attributes:
-        authentication_classes (list): List of authentication classes for verifying user authentication.
-    """
-
-    authentication_classes = [JWTAuthentication]
-
     def list(self, request):
         """
         Handles GET request to list posts of the authenticated user and their friends.
-
-        Args:
-            request (Request): HTTP request object containing user data.
 
         Returns:
             Response: JSON response with list of posts and associated data.
@@ -112,53 +91,9 @@ class PostListView(viewsets.ViewSet):
         post_serializer = PostSerializer(posts, context=context, many=True)
         return Response(post_serializer.data, status=status.HTTP_200_OK)
 
-
-class UserPostView(viewsets.ViewSet):
-    """
-    ViewSet for retrieving posts of a specific user or listing all posts of the authenticated user.
-
-    Attributes:
-        authentication_classes (list): List of authentication classes for verifying user authentication.
-    """
-
-    authentication_classes = [JWTAuthentication]
-
-    def list(self, request):
-        """
-        Handles GET request to list all posts of the authenticated user.
-
-        Args:
-            request (Request): HTTP request object containing user data.
-
-        Returns:
-            Response: JSON response with list of posts and associated data.
-        """
-        context = {"request": request, "user": request.user}
-        user = self.request.user
-        queryset = Post.objects.filter(user=user).order_by("-created_at")
-        total_post = queryset.count()
-        total_friends = Friendship.objects.filter(
-            Q(from_user=user, is_accepted=True) | Q(to_user=user, is_accepted=True)
-        ).count()
-        user_serializer = UsernameSerializer(user)
-        post_serializer = PostSerializer(queryset, context=context, many=True)
-        return Response(
-            {
-                "posts": post_serializer.data,
-                "total_posts": total_post,
-                "total_friends": total_friends,
-                "username": user_serializer.data,
-            },
-            status=status.HTTP_200_OK,
-        )
-
     def retrieve(self, request, pk=None):
         """
         Handles GET request to retrieve posts of a specific user.
-
-        Args:
-            request (Request): HTTP request object containing user data.
-            pk (str): Primary key of the user whose posts are to be retrieved.
 
         Returns:
             Response: JSON response with list of posts and associated data of the specified user.
@@ -173,16 +108,6 @@ class UserPostView(viewsets.ViewSet):
         ).count()
         user_serializer = UsernameSerializer(user, context=context)
         post_serializer = PostSerializer(queryset, context=context, many=True)
-        print(
-            "posts",
-            post_serializer.data,
-            "total_posts",
-            total_post,
-            "total_friends",
-            total_friends,
-            "username",
-            user_serializer.data,
-        )
         return Response(
             {
                 "posts": post_serializer.data,
@@ -193,24 +118,9 @@ class UserPostView(viewsets.ViewSet):
             status=status.HTTP_200_OK,
         )
 
-
-class DeletePostView(viewsets.ViewSet):
-    """
-    ViewSet for deleting a post.
-
-    Attributes:
-        authentication_classes (list): List of authentication classes for verifying user authentication.
-    """
-
-    authentication_classes = [JWTAuthentication]
-
     def destroy(self, request, pk=None):
         """
         Handles DELETE request to delete a post.
-
-        Args:
-            request (Request): HTTP request object containing user data.
-            pk (str): Primary key of the post to be deleted.
 
         Returns:
             Response: JSON response indicating success or failure of post deletion.
@@ -225,9 +135,6 @@ class DeletePostView(viewsets.ViewSet):
 class LikePostView(viewsets.ViewSet):
     """
     ViewSet for liking/unliking a post.
-
-    Attributes:
-        authentication_classes (list): List of authentication classes for verifying user authentication.
     """
 
     authentication_classes = [JWTAuthentication]
@@ -235,10 +142,6 @@ class LikePostView(viewsets.ViewSet):
     def retrieve(self, request, pk=None):
         """
         Handles GET request to like/unlike a post.
-
-        Args:
-            request (Request): HTTP request object containing user data.
-            pk (str): Primary key of the post to be liked/unliked.
 
         Returns:
             Response: JSON response indicating success or failure of like/unlike operation.
@@ -268,9 +171,6 @@ class LikePostView(viewsets.ViewSet):
 class AddCommentView(viewsets.ViewSet):
     """
     ViewSet for adding comments to a post.
-
-    Attributes:
-        authentication_classes (list): List of authentication classes for verifying user authentication.
     """
 
     authentication_classes = [JWTAuthentication]
@@ -278,9 +178,6 @@ class AddCommentView(viewsets.ViewSet):
     def create(self, request):
         """
         Handles POST request to add a comment to a post.
-
-        Args:
-            request (Request): HTTP request object containing user data and comment content.
 
         Returns:
             Response: JSON response indicating success or failure of comment creation.
@@ -299,285 +196,126 @@ class AddCommentView(viewsets.ViewSet):
 
 class FriendRequestSendView(viewsets.ViewSet):
     """
-    ViewSet for sending friend requests to other users.
+    ViewSet for sending and handling friend requests, follow-back requests, and managing friend lists.
 
-    Attributes:
-        authentication_classes (list): List of authentication classes for verifying user authentication.
     """
 
     authentication_classes = [JWTAuthentication]
 
-    def retrieve(self, request, pk=None):
+    @action(detail=True, methods=["post"])
+    def send_request(self, request, pk=None):
         """
-        Handles GET request to send a friend request to another user.
-
-        Args:
-            request (Request): HTTP request object containing user data.
-            pk (str): Primary key of the user to whom the friend request is sent.
+        Send a friend request to another user.
 
         Returns:
-            Response: JSON response indicating success or failure of friend request sending.
+            Response: A response indicating whether the friend request was sent successfully or if it already exists.
         """
         try:
             to_user = get_object_or_404(User, pk=pk)
-            friend_request = Friendship.objects.filter(
+            friend_request, created = Friendship.objects.get_or_create(
                 from_user=request.user, to_user=to_user
-            ).first()
-
-            if friend_request is None:
-                friend_request = Friendship.objects.create(
-                    from_user=request.user, to_user=to_user
-                )
+            )
+            if created:
                 return Response(
                     {"msg": "Friend request sent"}, status=status.HTTP_201_CREATED
                 )
-            else:
-                return Response(
-                    {"msg": "Friend request already sent"}, status=status.HTTP_200_OK
-                )
-
+            return Response(
+                {"msg": "Friend request already sent"}, status=status.HTTP_200_OK
+            )
         except User.DoesNotExist:
             return Response(
                 {"msg": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
             )
 
-
-class UnfollowFriendRequestView(viewsets.ViewSet):
-    """
-    ViewSet for unfollowing/rejecting friend requests.
-
-    Attributes:
-        authentication_classes (list): List of authentication classes for verifying user authentication.
-    """
-
-    authentication_classes = [JWTAuthentication]
-
-    def destroy(self, request, pk=None):
+    @action(detail=True, methods=["post"])
+    def send_follow_back_request(self, request, pk=None):
         """
-        Handles DELETE request to unfollow/reject a friend request.
-
-        Args:
-            request (Request): HTTP request object containing user data.
-            pk (str): Primary key of the user to unfollow/reject.
+        Send a follow-back request to a user who has already sent a friend request and it has been accepted.
 
         Returns:
-            Response: JSON response indicating success or failure of unfollow/rejection.
-        """
-
-        friendrequest = Friendship.objects.filter(
-            Q(from_user=request.user, to_user=pk, is_accepted=True)
-            | Q(to_user=request.user, from_user=pk, is_follow_back_accepted=True)
-        ).first()
-        print(friendrequest)
-        if friendrequest:
-            if (
-                friendrequest.is_accepted == True
-                and friendrequest.from_user == request.user
-            ):
-                friendrequest.delete()
-                return Response(
-                    {"msg": "Friend request rejected"}, status=status.HTTP_201_CREATED
-                )
-            elif (
-                friendrequest.to_user == request.user
-                and friendrequest.is_follow_back_accepted
-            ):
-                print("hii")
-                friendrequest.is_follow_back_accepted = False
-                friendrequest.is_follow_back_requested = False
-                friendrequest.save()
-                return Response(
-                    {"msg": "Friend request rejected"}, status=status.HTTP_201_CREATED
-                )
-        return Response(
-            {"msg": "Friendship Not Found"}, status=status.HTTP_404_NOT_FOUND
-        )
-
-
-class RejectFriendRequestView(viewsets.ViewSet):
-    """
-    ViewSet for rejecting friend requests.
-
-    Attributes:
-        authentication_classes (list): List of authentication classes for verifying user authentication.
-    """
-
-    authentication_classes = [JWTAuthentication]
-
-    def destroy(self, request, pk=None):
-        """
-        Handles DELETE request to reject a friend request.
-
-        Args:
-            request (Request): HTTP request object containing user data.
-            pk (str): Primary key of the friend request to be rejected.
-
-        Returns:
-            Response: JSON response indicating success or failure of friend request rejection.
-        """
-        reject_friend_request = Friendship.objects.filter(
-            pk=pk, to_user=request.user.id
-        )
-        if reject_friend_request:
-            reject_friend_request.delete()
-            return Response(
-                {"msg": "Friend request rejected"}, status=status.HTTP_201_CREATED
-            )
-        return Response(
-            {"msg": "Friendship Not Found"}, status=status.HTTP_404_NOT_FOUND
-        )
-
-
-class FollowBackFriendRequestsendView(viewsets.ViewSet):
-    """
-    ViewSet for sending friend requests to other users.
-
-    Attributes:
-        authentication_classes (list): List of authentication classes for verifying user authentication.
-    """
-
-    authentication_classes = [JWTAuthentication]
-
-    def retrieve(self, request, pk=None):
-        """
-        Handles GET request to send a friend request to another user.
-
-        Args:
-            request (Request): HTTP request object containing user data.
-            pk (str): Primary key of the user to whom the friend request is sent.
-
-        Returns:
-            Response: JSON response indicating success or failure of friend request sending.
+            Response: A response indicating whether the follow-back request was sent successfully.
         """
         try:
             to_user = get_object_or_404(User, pk=pk)
-            print(request)
             follow_back_request = Friendship.objects.filter(
                 is_follow_back_requested=False,
                 to_user=request.user,
                 from_user=to_user,
                 is_accepted=True,
             ).first()
-            if follow_back_request.is_follow_back_requested == False:
+            if follow_back_request:
                 follow_back_request.is_follow_back_requested = True
                 follow_back_request.save()
-            return Response(
-                {"msg": "Follow back request send"}, status=status.HTTP_201_CREATED
-            )
+                return Response(
+                    {"msg": "Follow back request sent"}, status=status.HTTP_201_CREATED
+                )
         except User.DoesNotExist:
             return Response(
                 {"msg": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
             )
 
-
-class FollowBackRequestAcceptedView(viewsets.ViewSet):
-    """
-    ViewSet for accepting friend requests.
-
-    Attributes:
-        authentication_classes (list): List of authentication classes for verifying user authentication.
-    """
-
-    authentication_classes = [JWTAuthentication]
-
-    def retrieve(self, request, pk=None):
+    @action(detail=True, methods=["post"])
+    def handle_request(self, request, pk=None):
         """
-        Handles GET request to accept a friend request.
-
-        Args:
-            request (Request): HTTP request object containing user data.
-            pk (str): Primary key of the friend request to be accepted.
+        Handle a friend or follow-back request by accepting, rejecting, or unfollowing.
 
         Returns:
-            Response: JSON response indicating success or failure of friend request acceptance.
+            Response: A response indicating the outcome of the request handling.
         """
+        action = request.data.get("action")
         try:
-            to_user = get_object_or_404(User, pk=pk)
-            print(to_user)
-            follow_back_request = Friendship.objects.filter(
-                is_follow_back_requested=True,
-                to_user=to_user,
-                from_user=request.user,
-                is_accepted=True,
-            ).first()
-            if (
-                follow_back_request.is_follow_back_requested
-                and follow_back_request.is_follow_back_accepted == False
-            ):
-                follow_back_request.is_follow_back_accepted = True
-                follow_back_request.save()
-            return Response(
-                {"follow_back_request": follow_back_request.is_follow_back_requested},
-                status=status.HTTP_202_ACCEPTED,
-            )
-        except User.DoesNotExist:
-            return Response(
-                {"msg": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
-            )
-
-
-class FollowRequestAccepted(viewsets.ViewSet):
-    """
-    ViewSet for accepting friend requests.
-
-    Attributes:
-        authentication_classes (list): List of authentication classes for verifying user authentication.
-    """
-
-    authentication_classes = [JWTAuthentication]
-
-    def retrieve(self, request, pk=None):
-        """
-        Handles GET request to accept a friend request.
-
-        Args:
-            request (Request): HTTP request object containing user data.
-            pk (str): Primary key of the friend request to be accepted.
-
-        Returns:
-            Response: JSON response indicating success or failure of friend request acceptance.
-        """
-        try:
-            to_user = get_object_or_404(User, pk=pk)
-            print(to_user)
             friendrequest = Friendship.objects.filter(
-                is_accepted=False,
-                to_user=request.user,
-                from_user=to_user,
+                Q(from_user=pk, to_user=request.user, is_accepted=False)
+                | Q(from_user=request.user, to_user=pk, is_accepted=True)
+                | Q(to_user=request.user, from_user=pk, is_follow_back_accepted=True)
             ).first()
-            print(friendrequest)
-            if not friendrequest.is_accepted:
-                friendrequest.is_accepted = True
+            if action == "accept":
+                if (
+                    friendrequest.from_user == request.user
+                    and friendrequest.is_follow_back_requested
+                    and not friendrequest.is_follow_back_accepted
+                ):
+                    friendrequest.is_follow_back_accepted = True
+                else:
+                    friendrequest.is_accepted = True
                 friendrequest.save()
-            return Response(
-                {"follow_back_request": friendrequest.is_accepted},
-                status=status.HTTP_202_ACCEPTED,
-            )
+                return Response(
+                    {"msg": "Request accepted"}, status=status.HTTP_201_CREATED
+                )
+            elif action == "reject":
+                if friendrequest.to_user == request.user:
+                    friendrequest.delete()
+                return Response(
+                    {"msg": "Request rejected"}, status=status.HTTP_201_CREATED
+                )
+            elif action == "unfollow":
+                if (
+                    friendrequest.is_accepted
+                    and friendrequest.from_user == request.user
+                ):
+                    friendrequest.delete()
+                elif (
+                    friendrequest.to_user == request.user
+                    and friendrequest.is_follow_back_accepted
+                ):
+                    friendrequest.is_follow_back_accepted = False
+                    friendrequest.is_follow_back_requested = False
+                    friendrequest.save()
+                return Response(
+                    {"msg": "Unfollowed successfully"}, status=status.HTTP_200_OK
+                )
         except User.DoesNotExist:
             return Response(
                 {"msg": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
             )
 
-
-class FriendRequestAcceptView(viewsets.ViewSet):
-    """
-    ViewSet for accepting friend requests.
-
-    Attributes:
-        authentication_classes (list): List of authentication classes for verifying user authentication.
-    """
-
-    authentication_classes = [JWTAuthentication]
-
-    def list(self, request):
+    @action(detail=False, methods=["get"], url_path="list_requests")
+    def list_requests(self, request):
         """
-        Handles GET request to list pending friend requests.
-
-        Args:
-            request (Request): HTTP request object containing user data.
+        List all pending friend requests and follow-back requests for user.
 
         Returns:
-            Response: JSON response with list of pending friend requests.
+            Response: A response containing a list of pending requests.
         """
         context = {"request": request}
         friend_request = Friendship.objects.filter(
@@ -588,63 +326,25 @@ class FriendRequestAcceptView(viewsets.ViewSet):
                 is_follow_back_accepted=False,
             )
         )
-        print(friend_request)
         friend_request_serializer = FriendshipRequestSerializer(
             friend_request, context=context, many=True
         )
-        return Response(friend_request_serializer.data,status = status.HTTP_200_OK)
+        return Response(friend_request_serializer.data, status=status.HTTP_200_OK)
 
-    def retrieve(self, request, pk=None):
+    @action(detail=False, methods=["get"], url_path="list_friends")
+    def list_friends(self, request):
         """
-        Handles GET request to accept a friend request.
-
-        Args:
-            request (Request): HTTP request object containing user data.
-            pk (str): Primary key of the friend request to be accepted.
+        List all friends of user.
 
         Returns:
-            Response: JSON response indicating success or failure of friend request acceptance.
+            Response: A response containing a list of friends.
         """
-        try:
-            pk = json.loads(pk)
-            friendrequest = Friendship.objects.get(pk=pk)
-            if friendrequest.from_user == request.user:
-                friendrequest.is_follow_back_accepted = True
-                friendrequest.save()
-                return Response(
-                    {"msg": "Request accepted"}, status=status.HTTP_201_CREATED
-                )
-            else:
-                friendrequest.is_accepted = True
-                friendrequest.save()
-                return Response(
-                    {"msg": "Request accepted"}, status=status.HTTP_201_CREATED
-                )
-        except User.DoesNotExist:
-            return Response(
-                {"msg": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
-            )
-
-
-class FriendsListView(viewsets.ViewSet):
-
-    authentication_classes = [JWTAuthentication]
-
-    def list(self, request):
-        try:
-            context = {'request':request}
-            friendrequest = Friendship.objects.filter(
-                Q(from_user=request.user)
-                | Q(to_user=request.user)
-            )
-            print(friendrequest)
-            friend_request_serializer = FriendsListSerializer(
-                friendrequest, context=context, many=True
-            )
-            return Response(friend_request_serializer.data,status = status.HTTP_200_OK)
-            
-
-        except User.DoesNotExist:
-            return Response(
-                {"msg": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
-            )
+        context = {"request": request}
+        friend_request = Friendship.objects.filter(
+            Q(from_user=request.user, is_accepted=True)
+            | Q(to_user=request.user, is_accepted=True)
+        )
+        friend_request_serializer = FriendsListSerializer(
+            friend_request, context=context, many=True
+        )
+        return Response(friend_request_serializer.data, status=status.HTTP_200_OK)
