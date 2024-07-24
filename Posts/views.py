@@ -194,7 +194,7 @@ class AddCommentView(viewsets.ViewSet):
         return Response(add_post_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class FriendRequestSendView(viewsets.ViewSet):
+class FriendshipView(viewsets.ViewSet):
     """
     ViewSet for sending and handling friend requests, follow-back requests, and managing friend lists.
 

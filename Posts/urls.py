@@ -6,7 +6,7 @@ router = DefaultRouter()
 router.register("userpost", views.UserPostView, basename="userpost")
 router.register("likepost", views.LikePostView, basename="likepost")
 router.register("addcommentpost", views.AddCommentView, basename="addcommentpost")
-router.register("friendship", views.FriendRequestSendView, basename="friendship")
+router.register("friendship", views.FriendshipView, basename="friendship")
 
 urlpatterns = [
     path("", include(router.urls)),
